@@ -24,6 +24,8 @@ export type SalesFormData = {
   last_name: string;
   administrator: boolean;
   disabled: boolean;
+  new_client_commission_rate: number;
+  recurring_client_commission_rate: number;
 };
 
 export type Sale = {
@@ -33,6 +35,8 @@ export type Sale = {
   avatar?: RAFile;
   disabled?: boolean;
   user_id: string;
+  new_client_commission_rate: number;
+  recurring_client_commission_rate: number;
 
   /**
    * This is a copy of the user's email, to make it easier to handle by react admin
@@ -67,6 +71,7 @@ export type Company = {
   tax_identifier: string;
   country: string;
   context_links?: string[];
+  archived_at?: string | null;
   nb_contacts?: number;
   nb_deals?: number;
 } & Pick<RaRecord, "id">;
@@ -100,6 +105,7 @@ export type Contact = {
   phone_jsonb: PhoneNumberAndType[];
   nb_tasks?: number;
   company_name?: string;
+  archived_at?: string | null;
 } & Pick<RaRecord, "id">;
 
 export type ContactNote = {
@@ -125,7 +131,76 @@ export type Deal = {
   expected_closing_date: string;
   sales_id: Identifier;
   index: number;
+  lead_source?: string;
+  client_type: ClientType;
+  next_follow_up_at?: string | null;
+  new_commission_rate_snapshot: number;
+  recurring_commission_rate_snapshot: number;
 } & Pick<RaRecord, "id">;
+
+export type ClientType = "new" | "recurring";
+
+export type CommissionStatus =
+  | "pending_review"
+  | "approved"
+  | "scheduled"
+  | "paid"
+  | "rejected"
+  | "reversed";
+
+export type Commission = {
+  deal_id: Identifier;
+  sales_id: Identifier;
+  confirmed_client_type: ClientType;
+  final_invoice_total: number;
+  applied_rate: number;
+  commission_amount: number;
+  prior_settled_amount: number;
+  balance_amount: number;
+  first_payment_amount: number;
+  first_payment_received_at: string;
+  first_payment_reference?: string | null;
+  status: CommissionStatus;
+  scheduled_for?: string | null;
+  paid_at?: string | null;
+  payout_reference?: string | null;
+  internal_note?: string | null;
+  reason?: string | null;
+  replacement_for_id?: Identifier | null;
+  created_by: Identifier;
+  created_at: string;
+  updated_at: string;
+} & Pick<RaRecord, "id">;
+
+export type CommissionEvent = {
+  commission_id: Identifier;
+  actor_sales_id: Identifier;
+  event_type: string;
+  previous_status?: CommissionStatus | null;
+  new_status?: CommissionStatus | null;
+  reason?: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+} & Pick<RaRecord, "id">;
+
+export type RecordClientPaymentInput = {
+  deal_id: Identifier;
+  confirmed_client_type: ClientType;
+  final_invoice_total: number;
+  first_payment_amount: number;
+  first_payment_received_at: string;
+  first_payment_reference?: string;
+  internal_note?: string;
+};
+
+export type TransitionCommissionInput = {
+  commission_id: Identifier;
+  new_status: CommissionStatus;
+  scheduled_for?: string;
+  paid_at?: string;
+  payout_reference?: string;
+  reason?: string;
+};
 
 export type DealNote = {
   deal_id: Identifier;

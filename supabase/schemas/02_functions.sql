@@ -453,3 +453,415 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION "public"."current_sales_id"() RETURNS bigint
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select id from public.sales where user_id = auth.uid() limit 1;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."set_deal_commission_rate_snapshots"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  partner public.sales%rowtype;
+begin
+  if new.sales_id is null then
+    new.sales_id := public.current_sales_id();
+  end if;
+
+  select * into partner from public.sales where id = new.sales_id;
+  if partner.id is null then
+    raise exception 'Sales partner not found';
+  end if;
+
+  new.new_commission_rate_snapshot := partner.new_client_commission_rate;
+  new.recurring_commission_rate_snapshot := partner.recurring_client_commission_rate;
+  return new;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."protect_deal_commission_fields"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  if not public.is_admin() then
+    new.sales_id := old.sales_id;
+    new.new_commission_rate_snapshot := old.new_commission_rate_snapshot;
+    new.recurring_commission_rate_snapshot := old.recurring_commission_rate_snapshot;
+  end if;
+  return new;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."record_client_payment"(
+    "deal_id" bigint,
+    "confirmed_client_type" text,
+    "final_invoice_total" numeric,
+    "first_payment_amount" numeric,
+    "first_payment_received_at" timestamp with time zone,
+    "first_payment_reference" text default null,
+    "internal_note" text default null
+) RETURNS public.commissions
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+#variable_conflict use_variable
+declare
+  actor_id bigint;
+  deal_record public.deals%rowtype;
+  commission_record public.commissions%rowtype;
+  applied_rate numeric(5, 2);
+begin
+  if not public.is_admin() then
+    raise exception 'Only administrators can record client payments';
+  end if;
+  actor_id := public.current_sales_id();
+
+  if confirmed_client_type not in ('new', 'recurring') then
+    raise exception 'Invalid client type';
+  end if;
+  if final_invoice_total <= 0 or first_payment_amount <= 0 then
+    raise exception 'Invoice total and first payment must be positive';
+  end if;
+
+  select * into deal_record from public.deals where id = deal_id for update;
+  if deal_record.id is null then
+    raise exception 'Deal not found';
+  end if;
+  if deal_record.stage <> 'won' then
+    raise exception 'Client payment can only be recorded for a won deal';
+  end if;
+
+  applied_rate := case confirmed_client_type
+    when 'new' then deal_record.new_commission_rate_snapshot
+    else deal_record.recurring_commission_rate_snapshot
+  end;
+
+  insert into public.commissions (
+    deal_id, sales_id, confirmed_client_type, final_invoice_total,
+    applied_rate, commission_amount, first_payment_amount,
+    first_payment_received_at, first_payment_reference, internal_note, created_by
+  ) values (
+    deal_record.id, deal_record.sales_id, confirmed_client_type,
+    final_invoice_total, applied_rate,
+    round(final_invoice_total * applied_rate / 100, 2),
+    first_payment_amount, first_payment_received_at,
+    nullif(first_payment_reference, ''), nullif(internal_note, ''), actor_id
+  ) returning * into commission_record;
+
+  insert into public.commission_events (
+    commission_id, actor_sales_id, event_type, new_status, details
+  ) values (
+    commission_record.id, actor_id, 'created', commission_record.status,
+    jsonb_build_object(
+      'final_invoice_total', commission_record.final_invoice_total,
+      'applied_rate', commission_record.applied_rate,
+      'commission_amount', commission_record.commission_amount
+    )
+  );
+
+  return commission_record;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."transition_commission"(
+    "commission_id" bigint,
+    "new_status" text,
+    "scheduled_for" date default null,
+    "paid_at" timestamp with time zone default null,
+    "payout_reference" text default null,
+    "reason" text default null
+) RETURNS public.commissions
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+#variable_conflict use_variable
+declare
+  actor_id bigint;
+  current_record public.commissions%rowtype;
+  updated_record public.commissions%rowtype;
+  allowed boolean := false;
+begin
+  if not public.is_admin() then
+    raise exception 'Only administrators can update commissions';
+  end if;
+  actor_id := public.current_sales_id();
+
+  select * into current_record from public.commissions where id = commission_id for update;
+  if current_record.id is null then
+    raise exception 'Commission not found';
+  end if;
+
+  allowed :=
+    (current_record.status = 'pending_review' and new_status in ('approved', 'rejected')) or
+    (current_record.status = 'approved' and new_status in ('scheduled', 'paid', 'reversed')) or
+    (current_record.status = 'scheduled' and new_status in ('approved', 'paid', 'reversed')) or
+    (current_record.status = 'paid' and new_status = 'reversed');
+  if not allowed then
+    raise exception 'Invalid commission status transition from % to %', current_record.status, new_status;
+  end if;
+  if new_status = 'scheduled' and scheduled_for is null then
+    raise exception 'A scheduled payout date is required';
+  end if;
+  if new_status = 'paid' and (paid_at is null or nullif(payout_reference, '') is null) then
+    raise exception 'Paid date and payout reference are required';
+  end if;
+  if new_status in ('rejected', 'reversed') and nullif(reason, '') is null then
+    raise exception 'A reason is required';
+  end if;
+
+  update public.commissions set
+    status = new_status,
+    scheduled_for = case when new_status = 'scheduled' then scheduled_for else commissions.scheduled_for end,
+    paid_at = case when new_status = 'paid' then paid_at else commissions.paid_at end,
+    payout_reference = case when new_status = 'paid' then payout_reference else commissions.payout_reference end,
+    reason = case when new_status in ('rejected', 'reversed') then reason else commissions.reason end,
+    updated_at = now()
+  where id = commission_id
+  returning * into updated_record;
+
+  insert into public.commission_events (
+    commission_id, actor_sales_id, event_type, previous_status, new_status, reason
+  ) values (
+    commission_id, actor_id, 'status_changed', current_record.status, new_status, nullif(reason, '')
+  );
+  return updated_record;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."replace_commission"(
+    "commission_id" bigint,
+    "confirmed_client_type" text,
+    "final_invoice_total" numeric,
+    "reason" text
+) RETURNS public.commissions
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+#variable_conflict use_variable
+declare
+  actor_id bigint;
+  current_record public.commissions%rowtype;
+  deal_record public.deals%rowtype;
+  replacement public.commissions%rowtype;
+  applied_rate numeric(5, 2);
+  settled numeric(14, 2);
+begin
+  if not public.is_admin() then
+    raise exception 'Only administrators can replace commissions';
+  end if;
+  if nullif(reason, '') is null then
+    raise exception 'A replacement reason is required';
+  end if;
+  if confirmed_client_type not in ('new', 'recurring') or final_invoice_total <= 0 then
+    raise exception 'Invalid replacement values';
+  end if;
+  actor_id := public.current_sales_id();
+
+  select * into current_record from public.commissions where id = commission_id for update;
+  if current_record.id is null or current_record.status not in ('approved', 'scheduled', 'paid') then
+    raise exception 'Only approved, scheduled, or paid commissions can be replaced';
+  end if;
+  select * into deal_record from public.deals where id = current_record.deal_id;
+  applied_rate := case confirmed_client_type
+    when 'new' then deal_record.new_commission_rate_snapshot
+    else deal_record.recurring_commission_rate_snapshot
+  end;
+  settled := current_record.prior_settled_amount +
+    case when current_record.status = 'paid' then current_record.balance_amount else 0 end;
+
+  update public.commissions set status = 'reversed', reason = reason, updated_at = now()
+    where id = commission_id;
+  insert into public.commission_events (
+    commission_id, actor_sales_id, event_type, previous_status, new_status, reason
+  ) values (
+    commission_id, actor_id, 'reversed_for_replacement', current_record.status, 'reversed', reason
+  );
+
+  insert into public.commissions (
+    deal_id, sales_id, confirmed_client_type, final_invoice_total,
+    applied_rate, commission_amount, prior_settled_amount,
+    first_payment_amount, first_payment_received_at, first_payment_reference,
+    status, internal_note, replacement_for_id, created_by
+  ) values (
+    current_record.deal_id, current_record.sales_id, confirmed_client_type,
+    final_invoice_total, applied_rate,
+    round(final_invoice_total * applied_rate / 100, 2), settled,
+    current_record.first_payment_amount, current_record.first_payment_received_at,
+    current_record.first_payment_reference, 'pending_review', current_record.internal_note,
+    current_record.id, actor_id
+  ) returning * into replacement;
+
+  insert into public.commission_events (
+    commission_id, actor_sales_id, event_type, new_status, reason,
+    details
+  ) values (
+    replacement.id, actor_id, 'replacement_created', replacement.status, reason,
+    jsonb_build_object('replaces', current_record.id, 'prior_settled_amount', settled)
+  );
+  return replacement;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."reassign_deal"(
+    "deal_id" bigint,
+    "new_sales_id" bigint,
+    "reason" text
+) RETURNS public.deals
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+#variable_conflict use_variable
+declare
+  actor_id bigint;
+  deal_record public.deals%rowtype;
+  new_partner public.sales%rowtype;
+  updated_deal public.deals%rowtype;
+  pending_commission public.commissions%rowtype;
+  source_company public.companies%rowtype;
+  target_company_id bigint;
+  source_contact public.contacts%rowtype;
+  source_contact_id bigint;
+  target_contact_id bigint;
+  target_contact_ids bigint[] := array[]::bigint[];
+begin
+  if not public.is_admin() then
+    raise exception 'Only administrators can reassign deals';
+  end if;
+  if nullif(reason, '') is null then
+    raise exception 'A reassignment reason is required';
+  end if;
+  actor_id := public.current_sales_id();
+  select * into deal_record from public.deals where id = deal_id for update;
+  select * into new_partner from public.sales where id = new_sales_id and disabled = false;
+  if deal_record.id is null or new_partner.id is null then
+    raise exception 'Deal or active partner not found';
+  end if;
+  if exists (
+    select 1 from public.commissions c
+    where c.deal_id = deal_record.id and c.status in ('approved', 'scheduled', 'paid')
+  ) then
+    raise exception 'Reverse the approved commission before reassigning this deal';
+  end if;
+
+  if deal_record.company_id is not null then
+    select * into source_company from public.companies where id = deal_record.company_id;
+    select id into target_company_id
+      from public.companies
+      where sales_id = new_partner.id
+        and (
+          (source_company.website is not null and website = source_company.website)
+          or lower(name) = lower(source_company.name)
+        )
+      order by id limit 1;
+    if target_company_id is null then
+      insert into public.companies (
+        name, sector, size, linkedin_url, website, phone_number, address,
+        zipcode, city, state_abbr, sales_id, context_links, country,
+        description, revenue, tax_identifier
+      ) values (
+        source_company.name, source_company.sector, source_company.size,
+        source_company.linkedin_url, source_company.website,
+        source_company.phone_number, source_company.address,
+        source_company.zipcode, source_company.city, source_company.state_abbr,
+        new_partner.id, source_company.context_links, source_company.country,
+        source_company.description, source_company.revenue,
+        source_company.tax_identifier
+      ) returning id into target_company_id;
+    end if;
+  end if;
+
+  foreach source_contact_id in array coalesce(deal_record.contact_ids, array[]::bigint[])
+  loop
+    select * into source_contact from public.contacts where id = source_contact_id;
+    if source_contact.id is not null then
+      insert into public.contacts (
+        first_name, last_name, gender, title, background, first_seen,
+        last_seen, has_newsletter, status, tags, company_id, sales_id,
+        linkedin_url, email_jsonb, phone_jsonb
+      ) values (
+        source_contact.first_name, source_contact.last_name,
+        source_contact.gender, source_contact.title, source_contact.background,
+        source_contact.first_seen, source_contact.last_seen,
+        source_contact.has_newsletter, source_contact.status,
+        source_contact.tags, target_company_id, new_partner.id,
+        source_contact.linkedin_url, source_contact.email_jsonb,
+        source_contact.phone_jsonb
+      ) returning id into target_contact_id;
+      target_contact_ids := array_append(target_contact_ids, target_contact_id);
+    end if;
+  end loop;
+
+  update public.deals set
+    sales_id = new_partner.id,
+    company_id = target_company_id,
+    contact_ids = target_contact_ids,
+    new_commission_rate_snapshot = new_partner.new_client_commission_rate,
+    recurring_commission_rate_snapshot = new_partner.recurring_client_commission_rate,
+    updated_at = now()
+  where id = deal_record.id returning * into updated_deal;
+
+  update public.deal_notes set sales_id = new_partner.id where deal_notes.deal_id = deal_record.id;
+  update public.commissions c set
+    sales_id = new_partner.id,
+    applied_rate = case c.confirmed_client_type
+      when 'new' then new_partner.new_client_commission_rate
+      else new_partner.recurring_client_commission_rate
+    end,
+    commission_amount = round(c.final_invoice_total * (
+      case c.confirmed_client_type
+        when 'new' then new_partner.new_client_commission_rate
+        else new_partner.recurring_client_commission_rate
+      end
+    ) / 100, 2),
+    updated_at = now()
+  where c.deal_id = deal_record.id and c.status = 'pending_review';
+
+  insert into public.deal_ownership_events (
+    deal_id, previous_sales_id, new_sales_id, actor_sales_id, reason
+  ) values (
+    deal_record.id, deal_record.sales_id, new_partner.id, actor_id, reason
+  );
+  return updated_deal;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."set_child_sales_id_from_parent"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  if tg_table_name = 'contact_notes' or tg_table_name = 'tasks' then
+    select sales_id into new.sales_id
+      from public.contacts where id = new.contact_id;
+  elsif tg_table_name = 'deal_notes' then
+    select sales_id into new.sales_id
+      from public.deals where id = new.deal_id;
+  end if;
+  if new.sales_id is null then
+    raise exception 'Parent record or owner not found';
+  end if;
+  return new;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."validate_deal_contacts_owner"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  if new.contact_ids is not null and exists (
+    select 1
+    from unnest(new.contact_ids) contact_id
+    left join public.contacts c on c.id = contact_id
+    where c.id is null or c.sales_id <> new.sales_id
+  ) then
+    raise exception 'All deal contacts must belong to the deal owner';
+  end if;
+  return new;
+end;
+$$;

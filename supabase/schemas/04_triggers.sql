@@ -13,20 +13,32 @@ create or replace trigger set_contact_sales_id_trigger
     for each row execute function public.set_sales_id_default();
 
 create or replace trigger set_contact_notes_sales_id_trigger
-    before insert on public.contact_notes
-    for each row execute function public.set_sales_id_default();
+    before insert or update on public.contact_notes
+    for each row execute function public.set_child_sales_id_from_parent();
 
 create or replace trigger set_deal_sales_id_trigger
     before insert on public.deals
     for each row execute function public.set_sales_id_default();
 
+create or replace trigger set_deal_commission_rate_snapshots_trigger
+    before insert on public.deals
+    for each row execute function public.set_deal_commission_rate_snapshots();
+
+create or replace trigger protect_deal_commission_fields_trigger
+    before update on public.deals
+    for each row execute function public.protect_deal_commission_fields();
+
 create or replace trigger set_deal_notes_sales_id_trigger
-    before insert on public.deal_notes
-    for each row execute function public.set_sales_id_default();
+    before insert or update on public.deal_notes
+    for each row execute function public.set_child_sales_id_from_parent();
 
 create or replace trigger set_task_sales_id_trigger
-    before insert on public.tasks
-    for each row execute function public.set_sales_id_default();
+    before insert or update on public.tasks
+    for each row execute function public.set_child_sales_id_from_parent();
+
+create or replace trigger "30_validate_deal_contacts_owner"
+    before insert or update on public.deals
+    for each row execute function public.validate_deal_contacts_owner();
 
 -- Auto-fetch company logo from website favicon on save
 create or replace trigger company_saved

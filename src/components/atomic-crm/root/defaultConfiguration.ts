@@ -8,7 +8,7 @@ import lightModeLogo from "./logos/logo_atomic_crm_light.svg";
 export const defaultDarkModeLogo = darkModeLogo;
 export const defaultLightModeLogo = lightModeLogo;
 
-export const defaultCurrency = "USD";
+export const defaultCurrency = "INR";
 
 export const defaultTitle = "Atomic CRM";
 
@@ -27,22 +27,24 @@ export const defaultCompanySectors = [
 ];
 
 export const defaultDealStages = [
-  { value: "opportunity", label: "Opportunity" },
+  { value: "new-lead", label: "New Lead" },
+  { value: "qualified", label: "Qualified" },
+  { value: "discovery", label: "Discovery" },
   { value: "proposal-sent", label: "Proposal Sent" },
-  { value: "in-negociation", label: "In Negotiation" },
+  { value: "negotiation", label: "Negotiation" },
   { value: "won", label: "Won" },
   { value: "lost", label: "Lost" },
-  { value: "delayed", label: "Delayed" },
+  { value: "on-hold", label: "On Hold" },
 ];
 
 export const defaultDealPipelineStatuses = ["won"];
 
 export const defaultDealCategories = [
+  { value: "custom-software", label: "Custom Software" },
+  { value: "website", label: "Website" },
+  { value: "mobile-app", label: "Mobile App" },
+  { value: "vapt", label: "VAPT" },
   { value: "other", label: "Other" },
-  { value: "copywriting", label: "Copywriting" },
-  { value: "print-project", label: "Print project" },
-  { value: "ui-design", label: "UI Design" },
-  { value: "website-design", label: "Website design" },
 ];
 
 export const defaultNoteStatuses = [

@@ -1,5 +1,7 @@
 import type {
   Company,
+  Commission,
+  CommissionEvent,
   Contact,
   ContactNote,
   Deal,
@@ -19,5 +21,7 @@ export interface Db {
   sales: Sale[];
   tags: Tag[];
   tasks: Task[];
+  commissions: Commission[];
+  commission_events: CommissionEvent[];
   configuration: Array<{ id: number; config: ConfigurationContextValue }>;
 }

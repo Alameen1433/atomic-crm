@@ -17,6 +17,18 @@ export const canAccess = <
     return true;
   }
 
+  if (params.action === "delete") {
+    return false;
+  }
+
+  if (
+    params.resource === "commissions" &&
+    params.action !== "list" &&
+    params.action !== "show"
+  ) {
+    return false;
+  }
+
   // Non admins can't access the sales resource
   if (params.resource === "sales") {
     return false;

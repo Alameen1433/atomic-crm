@@ -8,15 +8,18 @@ import {
 } from "ra-core";
 import type {
   ContactNote,
+  Commission,
   Deal,
   DealNote,
   RAFile,
   Sale,
   SalesFormData,
   SignUpData,
+  RecordClientPaymentInput,
+  TransitionCommissionInput,
 } from "../../types";
 import type { ConfigurationContextValue } from "../../root/ConfigurationContext";
-import { ATTACHMENTS_BUCKET } from "../commons/attachments";
+import { ASSETS_BUCKET, ATTACHMENTS_BUCKET } from "../commons/attachments";
 import { getIsInitialized } from "./authProvider";
 import { getSupabaseClient } from "./supabase";
 
@@ -32,7 +35,7 @@ const processCompanyLogo = async (params: any) => {
   const logo = params.data.logo;
 
   if (logo?.rawFile instanceof File) {
-    await uploadToBucket(logo);
+    await uploadToBucket(logo, ATTACHMENTS_BUCKET, params.data.sales_id);
   }
 
   return {
@@ -139,8 +142,16 @@ const getDataProviderWithCustomMethods = () => {
       id: Identifier,
       data: Partial<Omit<SalesFormData, "password">>,
     ) {
-      const { email, first_name, last_name, administrator, avatar, disabled } =
-        data;
+      const {
+        email,
+        first_name,
+        last_name,
+        administrator,
+        avatar,
+        disabled,
+        new_client_commission_rate,
+        recurring_client_commission_rate,
+      } = data;
 
       const { data: updatedData, error } =
         await getSupabaseClient().functions.invoke<{
@@ -155,6 +166,8 @@ const getDataProviderWithCustomMethods = () => {
             administrator,
             disabled,
             avatar,
+            new_client_commission_rate,
+            recurring_client_commission_rate,
           },
         });
 
@@ -241,6 +254,55 @@ const getDataProviderWithCustomMethods = () => {
       });
       return data.config as ConfigurationContextValue;
     },
+    async recordClientPayment(input: RecordClientPaymentInput) {
+      const { data, error } = await getSupabaseClient().rpc(
+        "record_client_payment",
+        input,
+      );
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to record client payment");
+      }
+      return data as Commission;
+    },
+    async transitionCommission(input: TransitionCommissionInput) {
+      const { data, error } = await getSupabaseClient().rpc(
+        "transition_commission",
+        input,
+      );
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to update commission");
+      }
+      return data as Commission;
+    },
+    async replaceCommission(input: {
+      commission_id: Identifier;
+      confirmed_client_type: "new" | "recurring";
+      final_invoice_total: number;
+      reason: string;
+    }) {
+      const { data, error } = await getSupabaseClient().rpc(
+        "replace_commission",
+        input,
+      );
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to replace commission");
+      }
+      return data as Commission;
+    },
+    async reassignDeal(input: {
+      deal_id: Identifier;
+      new_sales_id: Identifier;
+      reason: string;
+    }) {
+      const { data, error } = await getSupabaseClient().rpc(
+        "reassign_deal",
+        input,
+      );
+      if (error || !data) {
+        throw new Error(error?.message ?? "Failed to reassign deal");
+      }
+      return data as Deal;
+    },
   } satisfies DataProvider;
 };
 
@@ -251,7 +313,7 @@ export type CrmDataProvider = ReturnType<
 const processConfigLogo = async (logo: any): Promise<string> => {
   if (typeof logo === "string") return logo;
   if (logo?.rawFile instanceof File) {
-    await uploadToBucket(logo);
+    await uploadToBucket(logo, ASSETS_BUCKET);
     return logo.src;
   }
   return logo?.src ?? "";
@@ -279,6 +341,7 @@ const lifeCycleCallbacks: ResourceCallbacks[] = [
       }
       return data;
     },
+    afterRead: signRecordFiles,
   },
   {
     resource: "deal_notes",
@@ -290,6 +353,7 @@ const lifeCycleCallbacks: ResourceCallbacks[] = [
       }
       return data;
     },
+    afterRead: signRecordFiles,
   },
   {
     resource: "sales",
@@ -299,9 +363,11 @@ const lifeCycleCallbacks: ResourceCallbacks[] = [
       }
       return data;
     },
+    afterRead: signRecordFiles,
   },
   {
     resource: "contacts",
+    afterRead: signRecordFiles,
     beforeGetList: async (params) => {
       return applyFullTextSearch([
         "first_name",
@@ -316,6 +382,7 @@ const lifeCycleCallbacks: ResourceCallbacks[] = [
   },
   {
     resource: "companies",
+    afterRead: signRecordFiles,
     beforeGetList: async (params) => {
       return applyFullTextSearch([
         "name",
@@ -400,12 +467,29 @@ const applyFullTextSearch = (columns: string[]) => (params: GetListParams) => {
   };
 };
 
-const uploadToBucket = async (fi: RAFile) => {
+const getCurrentSalesId = async () => {
+  const { data: sessionData } = await getSupabaseClient().auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) throw new Error("Unable to resolve file owner");
+  const { data, error } = await getSupabaseClient()
+    .from("sales")
+    .select("id")
+    .eq("user_id", userId)
+    .single();
+  if (error || !data) throw new Error("Unable to resolve file owner");
+  return data.id;
+};
+
+const uploadToBucket = async (
+  fi: RAFile,
+  bucket = ATTACHMENTS_BUCKET,
+  ownerSalesId?: Identifier,
+) => {
   if (!fi.src.startsWith("blob:") && !fi.src.startsWith("data:")) {
     // Sign URL check if path exists in the bucket
     if (fi.path) {
       const { error } = await getSupabaseClient()
-        .storage.from(ATTACHMENTS_BUCKET)
+        .storage.from(bucket)
         .createSignedUrl(fi.path, 60);
 
       if (!error) {
@@ -436,10 +520,13 @@ const uploadToBucket = async (fi: RAFile) => {
   const file = fi.rawFile;
   const fileParts = file.name.split(".");
   const fileExt = fileParts.length > 1 ? `.${file.name.split(".").pop()}` : "";
-  const fileName = `${Math.random()}${fileExt}`;
-  const filePath = `${fileName}`;
+  const fileName = `${crypto.randomUUID()}${fileExt}`;
+  const filePath =
+    bucket === ASSETS_BUCKET
+      ? fileName
+      : `${ownerSalesId ?? (await getCurrentSalesId())}/${fileName}`;
   const { error: uploadError } = await getSupabaseClient()
-    .storage.from(ATTACHMENTS_BUCKET)
+    .storage.from(bucket)
     .upload(filePath, dataContent);
 
   if (uploadError) {
@@ -447,12 +534,18 @@ const uploadToBucket = async (fi: RAFile) => {
     throw new Error("Failed to upload attachment");
   }
 
-  const { data } = getSupabaseClient()
-    .storage.from(ATTACHMENTS_BUCKET)
-    .getPublicUrl(filePath);
-
   fi.path = filePath;
-  fi.src = data.publicUrl;
+  if (bucket === ASSETS_BUCKET) {
+    fi.src = getSupabaseClient()
+      .storage.from(bucket)
+      .getPublicUrl(filePath).data.publicUrl;
+  } else {
+    const { data, error } = await getSupabaseClient()
+      .storage.from(bucket)
+      .createSignedUrl(filePath, 60 * 60 * 24 * 7);
+    if (error || !data) throw new Error("Failed to sign attachment");
+    fi.src = data.signedUrl;
+  }
 
   // save MIME type
   const mimeType = file.type;
@@ -460,3 +553,25 @@ const uploadToBucket = async (fi: RAFile) => {
 
   return fi;
 };
+
+const signFile = async (file?: Partial<RAFile>) => {
+  if (!file?.path) return file;
+  const { data, error } = await getSupabaseClient()
+    .storage.from(ATTACHMENTS_BUCKET)
+    .createSignedUrl(file.path, 60 * 60 * 24 * 7);
+  if (error || !data) return file;
+  return { ...file, src: data.signedUrl };
+};
+
+async function signRecordFiles<RecordType extends Record<string, any>>(
+  record: RecordType,
+): Promise<RecordType> {
+  const [avatar, logo, attachments] = await Promise.all([
+    signFile(record.avatar),
+    signFile(record.logo),
+    Array.isArray(record.attachments)
+      ? Promise.all(record.attachments.map(signFile))
+      : Promise.resolve(record.attachments),
+  ]);
+  return { ...record, avatar, logo, attachments };
+}

@@ -1,4 +1,9 @@
-import { useGetIdentity, useListContext, useTranslate } from "ra-core";
+import {
+  useGetIdentity,
+  useGetList,
+  useListContext,
+  useTranslate,
+} from "ra-core";
 import { CreateButton } from "@/components/admin/create-button";
 import { ExportButton } from "@/components/admin/export-button";
 import { List } from "@/components/admin/list";
@@ -6,6 +11,7 @@ import { ListPagination } from "@/components/admin/list-pagination";
 import { SortButton } from "@/components/admin/sort-button";
 
 import { TopToolbar } from "../layout/TopToolbar";
+import type { Company } from "../types";
 import { CompanyEmpty } from "./CompanyEmpty";
 import { CompanyListFilter } from "./CompanyListFilter";
 import { ImageList } from "./GridList";
@@ -19,6 +25,7 @@ export const CompanyList = () => {
       perPage={25}
       sort={{ field: "name", order: "ASC" }}
       actions={<CompanyListActions />}
+      filter={{ "archived_at@is": null }}
       pagination={<ListPagination rowsPerPageOptions={[10, 25, 50, 100]} />}
     >
       <CompanyListLayout />
@@ -37,8 +44,48 @@ const CompanyListLayout = () => {
     <div className="w-full flex flex-row gap-8">
       <CompanyListFilter />
       <div className="flex flex-col flex-1 gap-4">
+        <DuplicateCompanyWarning />
         <ImageList />
       </div>
+    </div>
+  );
+};
+
+const DuplicateCompanyWarning = () => {
+  const { identity } = useGetIdentity();
+  const isAdmin = Boolean((identity as any)?.administrator);
+  const { data = [] } = useGetList<Company>(
+    "companies",
+    {
+      filter: { "archived_at@is": null },
+      pagination: { page: 1, perPage: 1000 },
+      sort: { field: "name", order: "ASC" },
+    },
+    { enabled: isAdmin },
+  );
+  if (!isAdmin) return null;
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const company of data) {
+    const nameKey = company.name.trim().toLocaleLowerCase();
+    let websiteKey = "";
+    try {
+      websiteKey = company.website
+        ? new URL(company.website).hostname.replace(/^www\./, "")
+        : "";
+    } catch {
+      websiteKey = company.website?.trim().toLocaleLowerCase() ?? "";
+    }
+    const key = websiteKey || nameKey;
+    if (seen.has(key)) duplicates.add(key);
+    seen.add(key);
+  }
+  if (duplicates.size === 0) return null;
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+      {duplicates.size} possible duplicate client{" "}
+      {duplicates.size === 1 ? "record" : "groups"} detected by company name or
+      website. Review ownership before merging or reassigning deals.
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import jsonExport from "jsonexport/dist";
 import {
   downloadCSV,
+  CanAccess,
   InfiniteListBase,
   useGetIdentity,
   useListContext,
@@ -45,6 +46,7 @@ export const ContactList = () => {
       perPage={25}
       sort={{ field: "last_seen", order: "DESC" }}
       exporter={exporter}
+      filter={{ "archived_at@is": null }}
     >
       <ContactListLayoutDesktop />
     </List>
@@ -80,7 +82,9 @@ const ContactBulkActionButtons = () => (
     <SelectAllButton />
     <BulkTagButton />
     <BulkExportButton />
-    <BulkDeleteButton />
+    <CanAccess resource="contacts" action="delete">
+      <BulkDeleteButton />
+    </CanAccess>
   </>
 );
 
@@ -102,6 +106,7 @@ export const ContactListMobile = () => {
       perPage={25}
       sort={{ field: "last_seen", order: "DESC" }}
       exporter={exporter}
+      filter={{ "archived_at@is": null }}
       queryOptions={{
         onError: () => {
           /* Disable error notification as ContactListLayoutMobile handles it */

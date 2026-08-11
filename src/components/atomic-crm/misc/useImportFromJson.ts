@@ -162,6 +162,8 @@ export const useImportFromJson = (): [
           last_name: dataToImport.last_name.trim(),
           administrator: false,
           disabled: false,
+          new_client_commission_rate: 20,
+          recurring_client_commission_rate: 15,
         });
 
         idsMaps.sales[dataToImport.id] = data.id;

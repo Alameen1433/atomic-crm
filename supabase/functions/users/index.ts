@@ -5,6 +5,14 @@ import { createErrorResponse } from "../_shared/utils.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
 
+const hasValidCommissionRates = (newRate: number, recurringRate: number) =>
+  Number.isFinite(Number(newRate)) &&
+  Number.isFinite(Number(recurringRate)) &&
+  Number(newRate) >= 0 &&
+  Number(newRate) <= 100 &&
+  Number(recurringRate) >= 0 &&
+  Number(recurringRate) <= 100;
+
 async function updateSaleDisabled(user_id: string, disabled: boolean) {
   return await supabaseAdmin
     .from("sales")
@@ -38,6 +46,8 @@ async function createSale(
     last_name: string;
     disabled: boolean;
     administrator: boolean;
+    new_client_commission_rate: number;
+    recurring_client_commission_rate: number;
   },
 ) {
   const { data: sales, error: salesError } = await supabaseAdmin
@@ -67,11 +77,30 @@ async function updateSaleAvatar(user_id: string, avatar: string) {
 }
 
 async function inviteUser(req: Request, currentUserSale: any) {
-  const { email, password, first_name, last_name, disabled, administrator } =
-    await req.json();
+  const {
+    email,
+    password,
+    first_name,
+    last_name,
+    disabled,
+    administrator,
+    new_client_commission_rate = 20,
+    recurring_client_commission_rate = 15,
+  } = await req.json();
 
   if (!currentUserSale.administrator) {
     return createErrorResponse(401, "Not Authorized");
+  }
+  if (
+    !hasValidCommissionRates(
+      new_client_commission_rate,
+      recurring_client_commission_rate,
+    )
+  ) {
+    return createErrorResponse(
+      400,
+      "Commission rates must be between 0 and 100",
+    );
   }
 
   const { data, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -121,6 +150,8 @@ async function inviteUser(req: Request, currentUserSale: any) {
         last_name,
         disabled,
         administrator,
+        new_client_commission_rate,
+        recurring_client_commission_rate,
       });
 
       return new Response(
@@ -163,6 +194,10 @@ async function inviteUser(req: Request, currentUserSale: any) {
   try {
     await updateSaleDisabled(user.id, disabled);
     const sale = await updateSaleAdministrator(user.id, administrator);
+    await supabaseAdmin
+      .from("sales")
+      .update({ new_client_commission_rate, recurring_client_commission_rate })
+      .eq("id", sale.id);
 
     return new Response(
       JSON.stringify({
@@ -187,6 +222,8 @@ async function patchUser(req: Request, currentUserSale: any) {
     avatar,
     administrator,
     disabled,
+    new_client_commission_rate,
+    recurring_client_commission_rate,
   } = await req.json();
   const { data: sale } = await supabaseAdmin
     .from("sales")
@@ -201,6 +238,24 @@ async function patchUser(req: Request, currentUserSale: any) {
   // Users can only update their own profile unless they are an administrator
   if (!currentUserSale.administrator && currentUserSale.id !== sale.id) {
     return createErrorResponse(401, "Not Authorized");
+  }
+
+  const nextNewClientCommissionRate =
+    new_client_commission_rate ?? sale.new_client_commission_rate;
+  const nextRecurringClientCommissionRate =
+    recurring_client_commission_rate ?? sale.recurring_client_commission_rate;
+
+  if (
+    currentUserSale.administrator &&
+    !hasValidCommissionRates(
+      nextNewClientCommissionRate,
+      nextRecurringClientCommissionRate,
+    )
+  ) {
+    return createErrorResponse(
+      400,
+      "Commission rates must be between 0 and 100",
+    );
   }
 
   const { data, error: userError } =
@@ -240,6 +295,32 @@ async function patchUser(req: Request, currentUserSale: any) {
   }
 
   try {
+    const ratesChanged =
+      Number(sale.new_client_commission_rate) !==
+        Number(nextNewClientCommissionRate) ||
+      Number(sale.recurring_client_commission_rate) !==
+        Number(nextRecurringClientCommissionRate);
+    if (ratesChanged) {
+      const { error: rateError } = await supabaseAdmin
+        .from("sales")
+        .update({
+          new_client_commission_rate: nextNewClientCommissionRate,
+          recurring_client_commission_rate: nextRecurringClientCommissionRate,
+        })
+        .eq("id", sale.id);
+      if (rateError) throw rateError;
+      const { error: historyError } = await supabaseAdmin
+        .from("sales_commission_rate_history")
+        .insert({
+          sales_id: sale.id,
+          actor_sales_id: currentUserSale.id,
+          previous_new_rate: sale.new_client_commission_rate,
+          new_new_rate: nextNewClientCommissionRate,
+          previous_recurring_rate: sale.recurring_client_commission_rate,
+          new_recurring_rate: nextRecurringClientCommissionRate,
+        });
+      if (historyError) throw historyError;
+    }
     await updateSaleDisabled(data.user.id, disabled);
     const sale = await updateSaleAdministrator(data.user.id, administrator);
     return new Response(

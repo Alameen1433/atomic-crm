@@ -10,6 +10,7 @@ import fakeRestDataProvider from "ra-data-fakerest";
 
 import type {
   Company,
+  Commission,
   Contact,
   ContactNote,
   Deal,
@@ -18,6 +19,8 @@ import type {
   SalesFormData,
   SignUpData,
   Task,
+  RecordClientPaymentInput,
+  TransitionCommissionInput,
 } from "../../types";
 import type { ConfigurationContextValue } from "../../root/ConfigurationContext";
 import { getActivityLog } from "../commons/activity";
@@ -316,6 +319,117 @@ export const createDataProvider = ({
       });
       return config;
     },
+    recordClientPayment: async (
+      input: RecordClientPaymentInput,
+    ): Promise<Commission> => {
+      const { data: deal } = await dataProvider.getOne<Deal>("deals", {
+        id: input.deal_id,
+      });
+      if (deal.stage !== "won") {
+        throw new Error("Client payment can only be recorded for a won deal");
+      }
+      const rate =
+        input.confirmed_client_type === "new"
+          ? deal.new_commission_rate_snapshot
+          : deal.recurring_commission_rate_snapshot;
+      const created = await dataProvider.create<Commission>("commissions", {
+        data: {
+          ...input,
+          sales_id: deal.sales_id,
+          applied_rate: rate,
+          commission_amount: Math.round(input.final_invoice_total * rate) / 100,
+          prior_settled_amount: 0,
+          balance_amount: Math.round(input.final_invoice_total * rate) / 100,
+          status: "pending_review",
+          created_by: (await getIdentity())?.id ?? 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      });
+      return created.data;
+    },
+    transitionCommission: async (
+      input: TransitionCommissionInput,
+    ): Promise<Commission> => {
+      const { data: previousData } = await dataProvider.getOne<Commission>(
+        "commissions",
+        {
+          id: input.commission_id,
+        },
+      );
+      const { data } = await dataProvider.update<Commission>("commissions", {
+        id: input.commission_id,
+        data: {
+          status: input.new_status,
+          scheduled_for: input.scheduled_for,
+          paid_at: input.paid_at,
+          payout_reference: input.payout_reference,
+          reason: input.reason,
+          updated_at: new Date().toISOString(),
+        },
+        previousData,
+      });
+      return data;
+    },
+    replaceCommission: async (input): Promise<Commission> => {
+      const { data: previousData } = await dataProvider.getOne<Commission>(
+        "commissions",
+        {
+          id: input.commission_id,
+        },
+      );
+      await dataProvider.update("commissions", {
+        id: previousData.id,
+        data: { status: "reversed", reason: input.reason },
+        previousData,
+      });
+      const { data: deal } = await dataProvider.getOne<Deal>("deals", {
+        id: previousData.deal_id,
+      });
+      const rate =
+        input.confirmed_client_type === "new"
+          ? deal.new_commission_rate_snapshot
+          : deal.recurring_commission_rate_snapshot;
+      const amount = Math.round(input.final_invoice_total * rate) / 100;
+      const settled =
+        previousData.prior_settled_amount +
+        (previousData.status === "paid" ? previousData.balance_amount : 0);
+      const { data } = await dataProvider.create<Commission>("commissions", {
+        data: {
+          ...previousData,
+          id: undefined,
+          confirmed_client_type: input.confirmed_client_type,
+          final_invoice_total: input.final_invoice_total,
+          applied_rate: rate,
+          commission_amount: amount,
+          prior_settled_amount: settled,
+          balance_amount: amount - settled,
+          status: "pending_review",
+          replacement_for_id: previousData.id,
+          reason: input.reason,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      });
+      return data;
+    },
+    reassignDeal: async (input): Promise<Deal> => {
+      const [{ data: previousData }, { data: partner }] = await Promise.all([
+        dataProvider.getOne<Deal>("deals", { id: input.deal_id }),
+        dataProvider.getOne<Sale>("sales", { id: input.new_sales_id }),
+      ]);
+      const { data } = await dataProvider.update<Deal>("deals", {
+        id: input.deal_id,
+        data: {
+          sales_id: partner.id,
+          new_commission_rate_snapshot: partner.new_client_commission_rate,
+          recurring_commission_rate_snapshot:
+            partner.recurring_client_commission_rate,
+        },
+        previousData,
+      });
+      return data;
+    },
   };
 
   const dataProvider = withLifecycleCallbacks(
@@ -564,12 +678,21 @@ export const createDataProvider = ({
       {
         resource: "deals",
         beforeCreate: async (params) => {
+          const identity = await getIdentity();
+          const partnerId = params.data.sales_id ?? identity?.id;
+          const { data: partner } = await dataProvider.getOne<Sale>("sales", {
+            id: partnerId,
+          });
           return {
             ...params,
             data: {
               ...params.data,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
+              sales_id: partnerId,
+              new_commission_rate_snapshot: partner.new_client_commission_rate,
+              recurring_commission_rate_snapshot:
+                partner.recurring_client_commission_rate,
             },
           };
         },

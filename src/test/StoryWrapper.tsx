@@ -34,6 +34,8 @@ const baseSale: Sale = {
   last_name: DEFAULT_USER.last_name,
   password: DEFAULT_USER.password,
   user_id: DEFAULT_USER.id.toString(),
+  new_client_commission_rate: 20,
+  recurring_client_commission_rate: 15,
 };
 
 // Provide a minimal FakeRest database shape so tests can override only the records
@@ -44,6 +46,8 @@ export const createCrmDb = (overrides: Partial<Db> = {}): Db =>
     configuration: [{ config: {}, id: 1 }],
     contact_notes: [],
     contacts: [],
+    commissions: [],
+    commission_events: [],
     deal_notes: [],
     deals: [],
     sales: [baseSale],

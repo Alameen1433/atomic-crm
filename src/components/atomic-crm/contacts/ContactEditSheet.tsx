@@ -1,6 +1,6 @@
 import type { Identifier } from "ra-core";
-import { useTranslate, useDeleteController, useRecordContext } from "ra-core";
-import { EllipsisVertical, Trash2 } from "lucide-react";
+import { useNotify, useRecordContext, useTranslate, useUpdate } from "ra-core";
+import { Archive, EllipsisVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -53,16 +53,21 @@ const ContactEditMenuButton = ({
 }) => {
   const translate = useTranslate();
   const record = useRecordContext();
-  const { handleDelete } = useDeleteController({
-    record,
-    resource: "contacts",
-    redirect: "list",
-    mutationMode: "undoable",
-  });
+  const notify = useNotify();
+  const [update] = useUpdate();
 
-  const onDelete = () => {
+  const onArchive = () => {
+    if (!record) return;
     onOpenChange(false);
-    handleDelete();
+    update(
+      "contacts",
+      {
+        id: record.id,
+        data: { archived_at: new Date().toISOString() },
+        previousData: record,
+      },
+      { onSuccess: () => notify("Contact archived", { type: "success" }) },
+    );
   };
 
   return (
@@ -77,12 +82,11 @@ const ContactEditMenuButton = ({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          variant="destructive"
           className="h-12 md:h-8 px-4 md:px-2 text-base md:text-sm"
-          onSelect={onDelete}
+          onSelect={onArchive}
         >
-          <Trash2 />
-          {translate("ra.action.delete")}
+          <Archive />
+          Archive contact
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

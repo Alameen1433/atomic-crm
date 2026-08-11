@@ -6,7 +6,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Home, ListTodo, Plus, Settings, Users } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  Home,
+  IndianRupee,
+  Plus,
+  Settings,
+  Users,
+} from "lucide-react";
 import { useTranslate } from "ra-core";
 import { Link, matchPath, useLocation, useMatch } from "react-router";
 import { ContactCreateSheet } from "../contacts/ContactCreateSheet";
@@ -29,6 +36,8 @@ export const MobileNavigation = () => {
     currentPath = "/tasks";
   } else if (matchPath("/deals/*", location.pathname)) {
     currentPath = "/deals";
+  } else if (matchPath("/commissions/*", location.pathname)) {
+    currentPath = "/commissions";
   } else {
     currentPath = false;
   }
@@ -70,10 +79,16 @@ export const MobileNavigation = () => {
           />
           <CreateButton />
           <NavigationButton
-            href="/tasks"
-            Icon={ListTodo}
-            label={translate("resources.tasks.name", { smart_count: 2 })}
-            isActive={currentPath === "/tasks"}
+            href="/deals"
+            Icon={BriefcaseBusiness}
+            label={translate("resources.deals.name", { smart_count: 2 })}
+            isActive={currentPath === "/deals"}
+          />
+          <NavigationButton
+            href="/commissions"
+            Icon={IndianRupee}
+            label="Commission"
+            isActive={currentPath === "/commissions"}
           />
           <SettingsButton />
         </>
@@ -97,7 +112,7 @@ const NavigationButton = ({
     asChild
     variant="ghost"
     className={cn(
-      "flex-col gap-1 h-auto py-2 px-1 rounded-md w-16",
+      "flex-col gap-1 h-auto py-2 px-1 rounded-md w-14",
       isActive ? null : "text-muted-foreground",
     )}
   >
@@ -136,7 +151,7 @@ const CreateButton = () => {
           <Button
             variant="default"
             size="icon"
-            className="h-16 w-16 rounded-full -mt-3"
+            className="h-14 w-14 rounded-full -mt-2"
             aria-label={translate("ra.action.create")}
           >
             <Plus className="size-10" />
