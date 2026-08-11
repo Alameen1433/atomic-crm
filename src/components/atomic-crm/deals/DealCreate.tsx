@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router";
 import {
   Form,
   useDataProvider,
@@ -17,8 +18,10 @@ import { DealInputs } from "./DealInputs";
 
 export const DealCreate = ({ open }: { open: boolean }) => {
   const redirect = useRedirect();
+  const location = useLocation();
   const dataProvider = useDataProvider();
   const { data: allDeals } = useListContext<Deal>();
+  const requestedStage = new URLSearchParams(location.search).get("stage");
 
   const handleClose = () => {
     redirect("/deals");
@@ -81,6 +84,7 @@ export const DealCreate = ({ open }: { open: boolean }) => {
               sales_id: identity?.id,
               contact_ids: [],
               index: 0,
+              stage: requestedStage ?? "new-lead",
             }}
           >
             <DealInputs />
