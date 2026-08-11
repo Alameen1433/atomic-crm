@@ -201,11 +201,12 @@ const DealShowContent = () => {
 
 const RecordPaymentButton = ({ deal }: { deal: Deal }) => {
   const [open, setOpen] = useState(false);
-  const { data } = useGetList<Commission>("commissions", {
+  const { data, isPending, error } = useGetList<Commission>("commissions", {
     filter: { deal_id: deal.id },
     pagination: { page: 1, perPage: 20 },
     sort: { field: "created_at", order: "DESC" },
   });
+  if (isPending || error) return null;
   if (
     data?.some(
       (commission) => !["rejected", "reversed"].includes(commission.status),

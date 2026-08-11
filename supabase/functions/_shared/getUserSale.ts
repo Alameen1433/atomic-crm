@@ -10,6 +10,7 @@ export const getUserSale = async (user: User) => {
       .from("sales")
       .select("*")
       .eq("user_id", user.id)
+      .eq("disabled", false)
       .single()
   )?.data;
 };

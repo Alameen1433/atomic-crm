@@ -36,7 +36,11 @@ create or replace trigger set_task_sales_id_trigger
     before insert or update on public.tasks
     for each row execute function public.set_child_sales_id_from_parent();
 
-create or replace trigger "30_validate_deal_contacts_owner"
+-- Must fire after the other BEFORE ROW deal triggers (set_deal_sales_id_trigger,
+-- set_deal_commission_rate_snapshots_trigger, protect_deal_commission_fields_trigger)
+-- so it validates the final sales_id. PostgreSQL fires same-event triggers in
+-- alphabetical order, hence the non-prefixed name.
+create or replace trigger validate_deal_contacts_owner
     before insert or update on public.deals
     for each row execute function public.validate_deal_contacts_owner();
 

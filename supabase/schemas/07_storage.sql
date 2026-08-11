@@ -17,6 +17,10 @@ create policy "CRM files select own or admin" on storage.objects
     and (
       public.is_admin()
       or (storage.foldername(name))[1] = public.current_sales_id()::text
+      or (
+        coalesce(array_length(storage.foldername(name), 1), 0) = 0
+        and public.can_access_legacy_attachment(name)
+      )
     )
   );
 create policy "CRM files insert own or admin" on storage.objects
@@ -35,6 +39,10 @@ create policy "CRM files update own or admin" on storage.objects
     and (
       public.is_admin()
       or (storage.foldername(name))[1] = public.current_sales_id()::text
+      or (
+        coalesce(array_length(storage.foldername(name), 1), 0) = 0
+        and public.can_access_legacy_attachment(name)
+      )
     )
   );
 create policy "CRM files delete own or admin" on storage.objects
@@ -44,6 +52,10 @@ create policy "CRM files delete own or admin" on storage.objects
     and (
       public.is_admin()
       or (storage.foldername(name))[1] = public.current_sales_id()::text
+      or (
+        coalesce(array_length(storage.foldername(name), 1), 0) = 0
+        and public.can_access_legacy_attachment(name)
+      )
     )
   );
 

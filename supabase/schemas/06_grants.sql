@@ -73,6 +73,10 @@ grant all on function public.validate_deal_contacts_owner() to service_role;
 grant all on function public.current_sales_id() to authenticated;
 grant all on function public.current_sales_id() to service_role;
 
+revoke all on function public.can_access_legacy_attachment(text) from public;
+grant execute on function public.can_access_legacy_attachment(text) to authenticated;
+grant execute on function public.can_access_legacy_attachment(text) to service_role;
+
 grant all on function public.set_deal_commission_rate_snapshots() to authenticated;
 grant all on function public.set_deal_commission_rate_snapshots() to service_role;
 
@@ -90,6 +94,11 @@ grant execute on function public.replace_commission(bigint, text, numeric, text)
 
 revoke all on function public.reassign_deal(bigint, bigint, text) from public;
 grant execute on function public.reassign_deal(bigint, bigint, text) to authenticated;
+
+-- Internal RPC invoked by the users edge function with the service role key,
+-- not by the browser.
+revoke all on function public.update_sales_commission_rates(bigint, bigint, numeric, numeric) from public;
+grant execute on function public.update_sales_commission_rates(bigint, bigint, numeric, numeric) to service_role;
 
 -- Table grants
 grant all on table public.companies to anon;
@@ -124,17 +133,33 @@ grant all on table public.tasks to anon;
 grant all on table public.tasks to authenticated;
 grant all on table public.tasks to service_role;
 
-grant all on table public.commissions to authenticated;
-grant all on table public.commissions to service_role;
+-- Commission audit tables are only mutated by the SECURITY DEFINER RPCs
+-- (running as the function owner). API roles get read-only access; ANY
+-- broader grant (e.g. TRUNCATE, which bypasses RLS) is revoked to override
+-- the privileges granted when the tables were created.
+revoke all on table public.commissions from anon;
+revoke all on table public.commissions from authenticated;
+revoke all on table public.commissions from service_role;
+grant select on table public.commissions to authenticated;
+grant select on table public.commissions to service_role;
 
-grant all on table public.commission_events to authenticated;
-grant all on table public.commission_events to service_role;
+revoke all on table public.commission_events from anon;
+revoke all on table public.commission_events from authenticated;
+revoke all on table public.commission_events from service_role;
+grant select on table public.commission_events to authenticated;
+grant select on table public.commission_events to service_role;
 
-grant all on table public.sales_commission_rate_history to authenticated;
-grant all on table public.sales_commission_rate_history to service_role;
+revoke all on table public.sales_commission_rate_history from anon;
+revoke all on table public.sales_commission_rate_history from authenticated;
+revoke all on table public.sales_commission_rate_history from service_role;
+grant select on table public.sales_commission_rate_history to authenticated;
+grant select on table public.sales_commission_rate_history to service_role;
 
-grant all on table public.deal_ownership_events to authenticated;
-grant all on table public.deal_ownership_events to service_role;
+revoke all on table public.deal_ownership_events from anon;
+revoke all on table public.deal_ownership_events from authenticated;
+revoke all on table public.deal_ownership_events from service_role;
+grant select on table public.deal_ownership_events to authenticated;
+grant select on table public.deal_ownership_events to service_role;
 
 grant all on table public.configuration to anon;
 grant all on table public.configuration to authenticated;
@@ -198,17 +223,8 @@ grant all on sequence public.tasks_id_seq to anon;
 grant all on sequence public.tasks_id_seq to authenticated;
 grant all on sequence public.tasks_id_seq to service_role;
 
-grant all on sequence public.commissions_id_seq to authenticated;
-grant all on sequence public.commissions_id_seq to service_role;
-
-grant all on sequence public.commission_events_id_seq to authenticated;
-grant all on sequence public.commission_events_id_seq to service_role;
-
-grant all on sequence public.sales_commission_rate_history_id_seq to authenticated;
-grant all on sequence public.sales_commission_rate_history_id_seq to service_role;
-
-grant all on sequence public.deal_ownership_events_id_seq to authenticated;
-grant all on sequence public.deal_ownership_events_id_seq to service_role;
+-- The commission-table sequences are only used by the SECURITY DEFINER RPCs
+-- as the function owner, so no grants are needed for API roles.
 
 -- Default privileges
 alter default privileges for role postgres in schema public grant all on sequences to postgres;

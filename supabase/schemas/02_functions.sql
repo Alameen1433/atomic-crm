@@ -268,7 +268,7 @@ CREATE OR REPLACE FUNCTION "public"."is_admin"() RETURNS boolean
     AS $$
 begin
   return exists (
-    select 1 from public.sales where user_id = auth.uid() and administrator = true
+    select 1 from public.sales where user_id = auth.uid() and administrator = true and disabled = false
   );
 end;
 $$;
@@ -448,7 +448,7 @@ CREATE OR REPLACE FUNCTION "public"."set_sales_id_default"() RETURNS "trigger"
     AS $$
 BEGIN
   IF NEW.sales_id IS NULL THEN
-    SELECT id INTO NEW.sales_id FROM sales WHERE user_id = auth.uid();
+    NEW.sales_id := public.current_sales_id();
   END IF;
   RETURN NEW;
 END;
@@ -458,7 +458,7 @@ CREATE OR REPLACE FUNCTION "public"."current_sales_id"() RETURNS bigint
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
-  select id from public.sales where user_id = auth.uid() limit 1;
+  select id from public.sales where user_id = auth.uid() and disabled = false limit 1;
 $$;
 
 CREATE OR REPLACE FUNCTION "public"."set_deal_commission_rate_snapshots"() RETURNS "trigger"
@@ -527,6 +527,9 @@ begin
   if final_invoice_total <= 0 or first_payment_amount <= 0 then
     raise exception 'Invoice total and first payment must be positive';
   end if;
+  if first_payment_amount > final_invoice_total then
+    raise exception 'First payment cannot exceed the invoice total';
+  end if;
 
   select * into deal_record from public.deals where id = deal_id for update;
   if deal_record.id is null then
@@ -534,6 +537,14 @@ begin
   end if;
   if deal_record.stage <> 'won' then
     raise exception 'Client payment can only be recorded for a won deal';
+  end if;
+  -- Guard against duplicate payments before relying on the
+  -- commissions_one_active_per_deal_idx unique index as a fallback
+  if exists (
+    select 1 from public.commissions c
+    where c.deal_id = deal_record.id and c.status not in ('rejected', 'reversed')
+  ) then
+    raise exception 'An active commission already exists for this deal';
   end if;
 
   applied_rate := case confirmed_client_type
@@ -721,7 +732,6 @@ declare
   deal_record public.deals%rowtype;
   new_partner public.sales%rowtype;
   updated_deal public.deals%rowtype;
-  pending_commission public.commissions%rowtype;
   source_company public.companies%rowtype;
   target_company_id bigint;
   source_contact public.contacts%rowtype;
@@ -779,19 +789,83 @@ begin
   loop
     select * into source_contact from public.contacts where id = source_contact_id;
     if source_contact.id is not null then
-      insert into public.contacts (
-        first_name, last_name, gender, title, background, first_seen,
-        last_seen, has_newsletter, status, tags, company_id, sales_id,
-        linkedin_url, email_jsonb, phone_jsonb
-      ) values (
-        source_contact.first_name, source_contact.last_name,
-        source_contact.gender, source_contact.title, source_contact.background,
-        source_contact.first_seen, source_contact.last_seen,
-        source_contact.has_newsletter, source_contact.status,
-        source_contact.tags, target_company_id, new_partner.id,
-        source_contact.linkedin_url, source_contact.email_jsonb,
-        source_contact.phone_jsonb
-      ) returning id into target_contact_id;
+      -- Reuse a matching contact already owned by the new partner so repeated
+      -- reassignment preserves activity history and avoids duplicates; only
+      -- clone the source contact when no target-owned match exists.
+      target_contact_id := null;
+      select c.id into target_contact_id
+        from public.contacts c
+        where c.sales_id = new_partner.id
+          and (
+            (
+              coalesce(jsonb_array_length(source_contact.email_jsonb), 0) > 0
+              and coalesce(jsonb_array_length(c.email_jsonb), 0) > 0
+              and exists (
+                select 1
+                from jsonb_array_elements(source_contact.email_jsonb) source_email
+                join jsonb_array_elements(c.email_jsonb) target_email
+                  on nullif(lower(btrim(target_email.value ->> 'email')), '')
+                    = nullif(lower(btrim(source_email.value ->> 'email')), '')
+              )
+            )
+            or (
+              nullif(lower(btrim(c.linkedin_url)), '')
+                = nullif(lower(btrim(source_contact.linkedin_url)), '')
+            )
+            or (
+              lower(btrim(c.first_name)) = lower(btrim(source_contact.first_name))
+              and lower(btrim(c.last_name)) = lower(btrim(source_contact.last_name))
+              and coalesce(jsonb_array_length(source_contact.phone_jsonb), 0) > 0
+              and coalesce(jsonb_array_length(c.phone_jsonb), 0) > 0
+              and exists (
+                select 1
+                from jsonb_array_elements(source_contact.phone_jsonb) source_phone
+                join jsonb_array_elements(c.phone_jsonb) target_phone
+                  on regexp_replace(target_phone.value ->> 'number', '\\D', '', 'g')
+                    = regexp_replace(source_phone.value ->> 'number', '\\D', '', 'g')
+                where regexp_replace(source_phone.value ->> 'number', '\\D', '', 'g') <> ''
+              )
+            )
+            or (
+              coalesce(jsonb_array_length(source_contact.email_jsonb), 0) = 0
+              and nullif(btrim(source_contact.linkedin_url), '') is null
+              and coalesce(jsonb_array_length(source_contact.phone_jsonb), 0) = 0
+              and lower(btrim(c.first_name)) = lower(btrim(source_contact.first_name))
+              and lower(btrim(c.last_name)) = lower(btrim(source_contact.last_name))
+              and c.company_id is not distinct from target_company_id
+              and 1 = (
+                select count(*)
+                from public.contacts candidate
+                where candidate.sales_id = new_partner.id
+                  and lower(btrim(candidate.first_name)) = lower(btrim(source_contact.first_name))
+                  and lower(btrim(candidate.last_name)) = lower(btrim(source_contact.last_name))
+                  and candidate.company_id is not distinct from target_company_id
+              )
+            )
+          )
+        order by
+          case
+            when nullif(lower(btrim(c.linkedin_url)), '')
+              = nullif(lower(btrim(source_contact.linkedin_url)), '') then 1
+            else 2
+          end,
+          c.id
+        limit 1;
+      if target_contact_id is null then
+        insert into public.contacts (
+          first_name, last_name, gender, title, background, first_seen,
+          last_seen, has_newsletter, status, tags, company_id, sales_id,
+          linkedin_url, email_jsonb, phone_jsonb
+        ) values (
+          source_contact.first_name, source_contact.last_name,
+          source_contact.gender, source_contact.title, source_contact.background,
+          source_contact.first_seen, source_contact.last_seen,
+          source_contact.has_newsletter, source_contact.status,
+          source_contact.tags, target_company_id, new_partner.id,
+          source_contact.linkedin_url, source_contact.email_jsonb,
+          source_contact.phone_jsonb
+        ) returning id into target_contact_id;
+      end if;
       target_contact_ids := array_append(target_contact_ids, target_contact_id);
     end if;
   end loop;
@@ -858,10 +932,86 @@ begin
     select 1
     from unnest(new.contact_ids) contact_id
     left join public.contacts c on c.id = contact_id
-    where c.id is null or c.sales_id <> new.sales_id
+    where c.id is null or c.sales_id is distinct from new.sales_id
   ) then
     raise exception 'All deal contacts must belong to the deal owner';
   end if;
   return new;
 end;
+$$;
+
+-- Called by the users edge function with the service role to atomically
+-- update a partner's commission rates and record the audit history row:
+-- both writes happen in this function's transaction, so neither persists if
+-- the other fails. Authorization is enforced by the edge function; execute is
+-- only granted to service_role (see 06_grants.sql).
+CREATE OR REPLACE FUNCTION "public"."update_sales_commission_rates"(
+    "p_sales_id" bigint,
+    "p_actor_sales_id" bigint,
+    "p_new_new_rate" numeric(5, 2),
+    "p_new_recurring_rate" numeric(5, 2)
+) RETURNS void
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+#variable_conflict use_variable
+declare
+  actor_record public.sales%rowtype;
+  previous_record public.sales%rowtype;
+begin
+  if p_new_new_rate < 0 or p_new_new_rate > 100
+    or p_new_recurring_rate < 0 or p_new_recurring_rate > 100 then
+    raise exception 'Commission rates must be between 0 and 100';
+  end if;
+
+  select * into actor_record
+    from public.sales
+    where id = p_actor_sales_id and administrator = true and disabled = false;
+  if actor_record.id is null then
+    raise exception 'Active administrator required';
+  end if;
+
+  select * into previous_record from public.sales where id = p_sales_id for update;
+  if previous_record.id is null then
+    raise exception 'Sales partner not found';
+  end if;
+
+  if previous_record.new_client_commission_rate = p_new_new_rate
+    and previous_record.recurring_client_commission_rate = p_new_recurring_rate then
+    return;
+  end if;
+
+  update public.sales set
+    new_client_commission_rate = p_new_new_rate,
+    recurring_client_commission_rate = p_new_recurring_rate
+  where id = p_sales_id;
+
+  insert into public.sales_commission_rate_history (
+    sales_id, actor_sales_id,
+    previous_new_rate, new_new_rate,
+    previous_recurring_rate, new_recurring_rate
+  ) values (
+    p_sales_id, p_actor_sales_id,
+    previous_record.new_client_commission_rate, p_new_new_rate,
+    previous_record.recurring_client_commission_rate, p_new_recurring_rate
+  );
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."can_access_legacy_attachment"("object_name" text) RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select public.is_admin() or exists (
+    select 1
+    from (
+      select n.sales_id, unnest(n.attachments) as attachment
+      from public.contact_notes n
+      union all
+      select n.sales_id, unnest(n.attachments) as attachment
+      from public.deal_notes n
+    ) note_attachment
+    where note_attachment.sales_id = public.current_sales_id()
+      and note_attachment.attachment ->> 'path' = object_name
+  );
 $$;

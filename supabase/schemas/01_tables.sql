@@ -296,6 +296,7 @@ create index contact_notes_contact_id_idx on public.contact_notes using btree (c
 create index contacts_company_id_idx on public.contacts using btree (company_id);
 create index deal_notes_deal_id_idx on public.deal_notes using btree (deal_id);
 create index deals_company_id_idx on public.deals using btree (company_id);
+create index commissions_deal_id_idx on public.commissions using btree (deal_id);
 create index commissions_sales_id_idx on public.commissions using btree (sales_id);
 create index commissions_status_idx on public.commissions using btree (status);
 create index commission_events_commission_id_idx on public.commission_events using btree (commission_id);

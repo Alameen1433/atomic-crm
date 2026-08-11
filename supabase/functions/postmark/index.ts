@@ -55,6 +55,12 @@ Deno.serve(async (req) => {
   const allSales = await supabaseAdmin
     .from("sales")
     .select("id, email, disabled");
+  if (allSales.error) {
+    // Return a 500 so Postmark retries the webhook later
+    // https://postmarkapp.com/developer/webhooks/inbound-webhook#errors-and-retries
+    console.error("Failed to fetch sales", allSales.error);
+    return new Response("Could not fetch the sales list", { status: 500 });
+  }
   const salesEmails =
     allSales.data?.map((s: { email: string }) => s.email) ?? [];
   const senderSale = allSales.data?.find(

@@ -76,7 +76,6 @@ export const MobileNavigation = () => {
             })}
             isActive={currentPath === "/companies"}
           />
-          <CreateButton />
           <NavigationButton
             href="/deals"
             Icon={BriefcaseBusiness}

@@ -106,7 +106,8 @@ const DuplicateCompanyWarning = () => {
     { enabled: isAdmin },
   );
   if (!isAdmin) return null;
-  const seen = new Set<string>();
+  const seenNames = new Set<string>();
+  const seenWebsites = new Set<string>();
   const duplicates = new Set<string>();
   for (const company of data) {
     const nameKey = company.name.trim().toLocaleLowerCase();
@@ -118,9 +119,14 @@ const DuplicateCompanyWarning = () => {
     } catch {
       websiteKey = company.website?.trim().toLocaleLowerCase() ?? "";
     }
-    const key = websiteKey || nameKey;
-    if (seen.has(key)) duplicates.add(key);
-    seen.add(key);
+    if (nameKey) {
+      if (seenNames.has(nameKey)) duplicates.add(`name:${nameKey}`);
+      seenNames.add(nameKey);
+    }
+    if (websiteKey) {
+      if (seenWebsites.has(websiteKey)) duplicates.add(`website:${websiteKey}`);
+      seenWebsites.add(websiteKey);
+    }
   }
   if (duplicates.size === 0) return null;
   return (

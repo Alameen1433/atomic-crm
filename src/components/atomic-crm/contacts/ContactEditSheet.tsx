@@ -58,7 +58,6 @@ const ContactEditMenuButton = ({
 
   const onArchive = () => {
     if (!record) return;
-    onOpenChange(false);
     update(
       "contacts",
       {
@@ -66,7 +65,15 @@ const ContactEditMenuButton = ({
         data: { archived_at: new Date().toISOString() },
         previousData: record,
       },
-      { onSuccess: () => notify("Contact archived", { type: "success" }) },
+      {
+        onSuccess: () => {
+          notify("Contact archived", { type: "success" });
+          onOpenChange(false);
+        },
+        onError: () => {
+          notify("Could not archive the contact", { type: "error" });
+        },
+      },
     );
   };
 

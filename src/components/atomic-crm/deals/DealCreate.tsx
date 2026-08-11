@@ -14,6 +14,7 @@ import { FormToolbar } from "@/components/admin/simple-form";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 import type { Deal } from "../types";
+import { useConfigurationContext } from "../root/ConfigurationContext";
 import { DealInputs } from "./DealInputs";
 
 export const DealCreate = ({ open }: { open: boolean }) => {
@@ -21,7 +22,13 @@ export const DealCreate = ({ open }: { open: boolean }) => {
   const location = useLocation();
   const dataProvider = useDataProvider();
   const { data: allDeals } = useListContext<Deal>();
+  const { dealStages } = useConfigurationContext();
   const requestedStage = new URLSearchParams(location.search).get("stage");
+  const initialStage = dealStages.some(
+    (stage) => stage.value === requestedStage,
+  )
+    ? requestedStage!
+    : (dealStages.at(0)?.value ?? "new-lead");
 
   const handleClose = () => {
     redirect("/deals");
@@ -84,7 +91,7 @@ export const DealCreate = ({ open }: { open: boolean }) => {
               sales_id: identity?.id,
               contact_ids: [],
               index: 0,
-              stage: requestedStage ?? "new-lead",
+              stage: initialStage,
             }}
           >
             <DealInputs />

@@ -418,6 +418,10 @@
           "type": "registry:component"
         },
         {
+          "path": "src/components/atomic-crm/misc/localDate.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "src/components/atomic-crm/misc/isLinkedInUrl.ts",
           "type": "registry:component"
         },

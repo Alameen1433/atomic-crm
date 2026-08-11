@@ -31,6 +31,15 @@ const getBaseDataProvider = () =>
     sortOrder: "asc,desc.nullslast" as any,
   });
 
+const getFunctionErrorMessage = async (error: any, fallback: string) => {
+  try {
+    const details = (await error?.context?.json()) ?? {};
+    return details.message || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 const processCompanyLogo = async (params: any) => {
   const logo = params.data.logo;
 
@@ -126,14 +135,9 @@ const getDataProviderWithCustomMethods = () => {
 
       if (!data || error) {
         console.error("salesCreate.error", error);
-        const errorDetails = await (async () => {
-          try {
-            return (await error?.context?.json()) ?? {};
-          } catch {
-            return {};
-          }
-        })();
-        throw new Error(errorDetails?.message || "Failed to create the user");
+        throw new Error(
+          await getFunctionErrorMessage(error, "Failed to create the user"),
+        );
       }
 
       return data.data;
@@ -172,8 +176,13 @@ const getDataProviderWithCustomMethods = () => {
         });
 
       if (!updatedData || error) {
-        console.error("salesCreate.error", error);
-        throw new Error("Failed to update account manager");
+        console.error("salesUpdate.error", error);
+        throw new Error(
+          await getFunctionErrorMessage(
+            error,
+            "Failed to update account manager",
+          ),
+        );
       }
 
       return updatedData.data;
@@ -192,7 +201,9 @@ const getDataProviderWithCustomMethods = () => {
 
       if (!passwordUpdated?.data || error) {
         console.error("update_password.error", error);
-        throw new Error("Failed to update password");
+        throw new Error(
+          await getFunctionErrorMessage(error, "Failed to update password"),
+        );
       }
 
       return passwordUpdated.data;
@@ -576,5 +587,10 @@ async function signRecordFiles<RecordType extends Record<string, any>>(
       ? Promise.all(record.attachments.map(signFile))
       : Promise.resolve(record.attachments),
   ]);
-  return { ...record, avatar, logo, attachments };
+  return {
+    ...record,
+    ...(record.avatar !== undefined ? { avatar } : {}),
+    ...(record.logo !== undefined ? { logo } : {}),
+    ...(record.attachments !== undefined ? { attachments } : {}),
+  };
 }

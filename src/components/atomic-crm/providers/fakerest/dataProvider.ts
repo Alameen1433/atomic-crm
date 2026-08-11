@@ -361,10 +361,14 @@ export const createDataProvider = ({
         id: input.commission_id,
         data: {
           status: input.new_status,
-          scheduled_for: input.scheduled_for,
-          paid_at: input.paid_at,
-          payout_reference: input.payout_reference,
-          reason: input.reason,
+          ...(input.scheduled_for !== undefined
+            ? { scheduled_for: input.scheduled_for }
+            : {}),
+          ...(input.paid_at !== undefined ? { paid_at: input.paid_at } : {}),
+          ...(input.payout_reference !== undefined
+            ? { payout_reference: input.payout_reference }
+            : {}),
+          ...(input.reason !== undefined ? { reason: input.reason } : {}),
           updated_at: new Date().toISOString(),
         },
         previousData,
@@ -403,7 +407,7 @@ export const createDataProvider = ({
           applied_rate: rate,
           commission_amount: amount,
           prior_settled_amount: settled,
-          balance_amount: amount - settled,
+          balance_amount: Math.max(0, amount - settled),
           status: "pending_review",
           replacement_for_id: previousData.id,
           reason: input.reason,
@@ -680,6 +684,11 @@ export const createDataProvider = ({
         beforeCreate: async (params) => {
           const identity = await getIdentity();
           const partnerId = params.data.sales_id ?? identity?.id;
+          if (partnerId == null) {
+            throw new Error(
+              "Cannot create a deal without a sales partner: provide data.sales_id or sign in first",
+            );
+          }
           const { data: partner } = await dataProvider.getOne<Sale>("sales", {
             id: partnerId,
           });

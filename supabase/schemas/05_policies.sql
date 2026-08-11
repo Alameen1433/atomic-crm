@@ -122,10 +122,13 @@ create policy "Deal notes delete admin" on public.deal_notes
 
 create policy "Sales select self or admin" on public.sales
   for select to authenticated
-  using (public.is_admin() or user_id = auth.uid());
+  using (
+    public.current_sales_id() is not null
+    and (public.is_admin() or user_id = auth.uid())
+  );
 
 create policy "Tags read authenticated" on public.tags
-  for select to authenticated using (true);
+  for select to authenticated using (public.current_sales_id() is not null);
 create policy "Tags insert admin" on public.tags
   for insert to authenticated with check (public.is_admin());
 create policy "Tags update admin" on public.tags
@@ -174,13 +177,13 @@ create policy "Deal ownership events select own or admin" on public.deal_ownersh
   );
 
 create policy "Configuration read authenticated" on public.configuration
-  for select to authenticated using (true);
+  for select to authenticated using (public.current_sales_id() is not null);
 create policy "Configuration insert admin" on public.configuration
   for insert to authenticated with check (public.is_admin());
 create policy "Configuration update admin" on public.configuration
   for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
 create policy "Favicons read authenticated" on public.favicons_excluded_domains
-  for select to authenticated using (true);
+  for select to authenticated using (public.current_sales_id() is not null);
 create policy "Favicons write admin" on public.favicons_excluded_domains
   for all to authenticated using (public.is_admin()) with check (public.is_admin());

@@ -3,7 +3,7 @@ import { CalendarClock, Check, IndianRupee, RotateCcw, X } from "lucide-react";
 import {
   useDataProvider,
   useGetIdentity,
-  useGetOne,
+  useGetMany,
   useListContext,
   useNotify,
   useRefresh,
@@ -25,6 +25,10 @@ import { Textarea } from "@/components/ui/textarea";
 
 import type { CrmDataProvider } from "../providers/types";
 import type { Commission, CommissionStatus, Deal, Sale } from "../types";
+import {
+  getTodayInputDateString,
+  parseInputDateAtLocalMidnight,
+} from "../misc/localDate";
 
 const statuses: CommissionStatus[] = [
   "pending_review",
@@ -50,6 +54,15 @@ const money = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+// scheduled_for is a date-only ("YYYY-MM-DD") column: format it in UTC so the
+// stored calendar day is preserved regardless of the user's timezone.
+const scheduledDate = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 const getDisplayedPayoutAmount = (commission: Commission) =>
   commission.status === "rejected" || commission.status === "reversed"
     ? 0
@@ -71,6 +84,32 @@ const CommissionBoard = () => {
   const { data = [], isPending } = useListContext<Commission>();
   const { identity } = useGetIdentity();
   const isAdmin = Boolean((identity as any)?.administrator);
+
+  const dealIds = useMemo(
+    () => [...new Set(data.map((commission) => commission.deal_id))],
+    [data],
+  );
+  const salesIds = useMemo(
+    () => [...new Set(data.map((commission) => commission.sales_id))],
+    [data],
+  );
+  const { data: deals = [] } = useGetMany<Deal>("deals", { ids: dealIds });
+  const { data: partners = [] } = useGetMany<Sale>(
+    "sales",
+    { ids: salesIds },
+    { enabled: isAdmin },
+  );
+  const dealsById = useMemo(
+    () => new Map<Deal["id"], Deal>(deals.map((deal) => [deal.id, deal])),
+    [deals],
+  );
+  const partnersById = useMemo(
+    () =>
+      new Map<Sale["id"], Sale>(
+        partners.map((partner) => [partner.id, partner]),
+      ),
+    [partners],
+  );
 
   const totals = useMemo(
     () =>
@@ -160,6 +199,8 @@ const CommissionBoard = () => {
                         key={record.id}
                         commission={record}
                         isAdmin={isAdmin}
+                        deal={dealsById.get(record.deal_id)}
+                        partner={partnersById.get(record.sales_id)}
                       />
                     ))
                   )}
@@ -187,18 +228,14 @@ const Summary = ({ label, value }: { label: string; value: number }) => (
 const CommissionCard = ({
   commission,
   isAdmin,
+  deal,
+  partner,
 }: {
   commission: Commission;
   isAdmin: boolean;
+  deal?: Deal;
+  partner?: Sale;
 }) => {
-  const { data: deal } = useGetOne<Deal>("deals", {
-    id: commission.deal_id,
-  });
-  const { data: partner } = useGetOne<Sale>(
-    "sales",
-    { id: commission.sales_id },
-    { enabled: isAdmin },
-  );
   const [action, setAction] = useState<Action | null>(null);
   const payoutLabel =
     commission.status === "paid"
@@ -241,7 +278,7 @@ const CommissionCard = ({
           </Badge>
           {commission.scheduled_for ? (
             <span className="text-muted-foreground">
-              {commission.scheduled_for}
+              {scheduledDate.format(new Date(commission.scheduled_for))}
             </span>
           ) : null}
         </div>
@@ -357,7 +394,7 @@ const CommissionActionDialog = ({
   const dataProvider = useDataProvider<CrmDataProvider>();
   const notify = useNotify();
   const refresh = useRefresh();
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(getTodayInputDateString());
   const [reference, setReference] = useState("");
   const [reason, setReason] = useState("");
   const [clientType, setClientType] = useState(
@@ -391,7 +428,10 @@ const CommissionActionDialog = ({
         commission_id: commission.id,
         new_status: newStatus,
         scheduled_for: action === "schedule" ? date : undefined,
-        paid_at: action === "paid" ? new Date(date).toISOString() : undefined,
+        paid_at:
+          action === "paid"
+            ? parseInputDateAtLocalMidnight(date).toISOString()
+            : undefined,
         payout_reference: action === "paid" ? reference : undefined,
         reason:
           action === "reject" || action === "reverse" ? reason : undefined,

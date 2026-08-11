@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { type User } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, OptionsMiddleware } from "../_shared/cors.ts";
 import { createErrorResponse } from "../_shared/utils.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
@@ -6,13 +7,19 @@ import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
 import { canResetPassword } from "./canResetPassword.ts";
 
-async function updatePassword(req: Request, user: any) {
+async function updatePassword(req: Request, user: User) {
   const currentSale = await getUserSale(user);
   if (!currentSale) {
     return createErrorResponse(403, "CRM user profile not found");
   }
 
-  const { sales_id: targetSalesId = currentSale.id } = await req.json();
+  let body: { sales_id?: string | number };
+  try {
+    body = await req.json();
+  } catch {
+    return createErrorResponse(400, "Invalid request body");
+  }
+  const { sales_id: targetSalesId = currentSale.id } = body;
   if (!canResetPassword(currentSale, targetSalesId)) {
     return createErrorResponse(
       403,
@@ -22,12 +29,19 @@ async function updatePassword(req: Request, user: any) {
 
   const { data: targetSale, error: targetError } = await supabaseAdmin
     .from("sales")
-    .select("email")
+    .select("email, disabled")
     .eq("id", targetSalesId)
     .single();
 
   if (!targetSale || targetError) {
     return createErrorResponse(404, "User not found");
+  }
+
+  if (targetSale.disabled) {
+    return createErrorResponse(
+      409,
+      "Enable the user before resetting their password",
+    );
   }
 
   const { data, error } = await supabaseAdmin.auth.resetPasswordForEmail(

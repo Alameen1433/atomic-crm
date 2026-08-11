@@ -82,9 +82,10 @@ const getSale = async () => {
   const { data: dataSale, error: errorSale } = await getSupabaseClient()
     .from("sales")
     .select(
-      "id, first_name, last_name, avatar, administrator, new_client_commission_rate, recurring_client_commission_rate",
+      "id, first_name, last_name, avatar, administrator, disabled, new_client_commission_rate, recurring_client_commission_rate",
     )
     .match({ user_id: dataSession?.session?.user.id })
+    .eq("disabled", false)
     .single();
 
   // Shouldn't happen either as all users are sales but just in case
@@ -156,7 +157,16 @@ export const getAuthProvider = (): AuthProvider => {
         };
       }
 
-      return baseAuthProvider.checkAuth(params);
+      await baseAuthProvider.checkAuth(params);
+      const sale = await getSale();
+      if (sale == null) {
+        clearCache();
+        await getSupabaseClient().auth.signOut();
+        throw {
+          redirectTo: "/login",
+          message: "This CRM account is disabled",
+        };
+      }
     },
     canAccess: async (params) => {
       const isInitialized = await getIsInitialized();

@@ -14,6 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 
 import type { CrmDataProvider } from "../providers/types";
 import type { ClientType, Deal } from "../types";
+import {
+  getTodayInputDateString,
+  parseInputDateAtLocalMidnight,
+} from "../misc/localDate";
 
 export const RecordPaymentDialog = ({
   deal,
@@ -32,9 +36,7 @@ export const RecordPaymentDialog = ({
   );
   const [invoiceTotal, setInvoiceTotal] = useState(String(deal.amount || ""));
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [receivedAt, setReceivedAt] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [receivedAt, setReceivedAt] = useState(getTodayInputDateString());
   const [reference, setReference] = useState("");
   const [note, setNote] = useState("");
 
@@ -45,7 +47,8 @@ export const RecordPaymentDialog = ({
         confirmed_client_type: clientType,
         final_invoice_total: Number(invoiceTotal),
         first_payment_amount: Number(paymentAmount),
-        first_payment_received_at: new Date(receivedAt).toISOString(),
+        first_payment_received_at:
+          parseInputDateAtLocalMidnight(receivedAt).toISOString(),
         first_payment_reference: reference || undefined,
         internal_note: note || undefined,
       }),
@@ -59,6 +62,12 @@ export const RecordPaymentDialog = ({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (Number(paymentAmount) > Number(invoiceTotal)) {
+      notify("First payment cannot exceed the final invoice total", {
+        type: "error",
+      });
+      return;
+    }
     mutation.mutate();
   };
 

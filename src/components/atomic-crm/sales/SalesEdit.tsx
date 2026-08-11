@@ -47,14 +47,20 @@ function ResetPartnerPasswordButton() {
     },
     onSuccess: () => {
       setConfirmOpen(false);
-      notify("Password reset email sent", {
+      notify(`A password reset email was sent to ${record?.email}.`, {
+        type: "success",
         messageArgs: {
           _: `A password reset email was sent to ${record?.email}.`,
         },
       });
     },
-    onError: () => {
-      notify("Failed to send password reset email", { type: "error" });
+    onError: (error: Error) => {
+      notify(`Failed to send password reset email: ${error.message}`, {
+        type: "error",
+        messageArgs: {
+          _: `Failed to send password reset email: ${error.message}`,
+        },
+      });
     },
   });
 

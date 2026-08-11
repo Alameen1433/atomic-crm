@@ -11,6 +11,17 @@ import { CompanyAvatar } from "../companies/CompanyAvatar";
 import { useConfigurationContext } from "../root/ConfigurationContext";
 import type { Deal } from "../types";
 
+const expectedCloseFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
+const followUpFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+});
+
 export const DealCard = ({ deal, index }: { deal: Deal; index: number }) => {
   if (!deal) return null;
 
@@ -116,10 +127,10 @@ export const DealCardContent = ({
                 <CalendarDays className="size-3.5" />
                 <span>
                   {deal.next_follow_up_at ? "Follow up" : "Expected close"}:{" "}
-                  {new Intl.DateTimeFormat("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                  }).format(
+                  {(deal.next_follow_up_at
+                    ? followUpFormatter
+                    : expectedCloseFormatter
+                  ).format(
                     new Date(
                       deal.next_follow_up_at ?? deal.expected_closing_date,
                     ),

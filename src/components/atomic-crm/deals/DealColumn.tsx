@@ -41,8 +41,8 @@ export const DealColumn = ({
             </h3>
             <p className="mt-0.5 text-xs font-medium text-muted-foreground">
               {totalAmount.toLocaleString("en-IN", {
-                maximumFractionDigits: 1,
-                notation: totalAmount >= 100000 ? "compact" : "standard",
+                maximumFractionDigits: 2,
+                notation: "standard",
                 style: "currency",
                 currency,
                 currencyDisplay: "narrowSymbol",

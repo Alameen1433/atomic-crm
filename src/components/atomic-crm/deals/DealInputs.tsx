@@ -119,6 +119,7 @@ const DealMiscInputs = () => {
         optionText="label"
         optionValue="value"
         helperText={false}
+        validate={required()}
       />
       <SelectInput
         source="client_type"
