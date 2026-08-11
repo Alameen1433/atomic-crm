@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import type { InputProps } from "ra-core";
 import { useGetIdentity, useListContext, useTranslate } from "ra-core";
+import { SlidersHorizontal } from "lucide-react";
 import { matchPath, useLocation } from "react-router";
+import { Link } from "react-router";
 import { AutocompleteInput } from "@/components/admin/autocomplete-input";
 import { CreateButton } from "@/components/admin/create-button";
 import { ExportButton } from "@/components/admin/export-button";
@@ -10,13 +12,14 @@ import { ReferenceInput } from "@/components/admin/reference-input";
 import { FilterButton } from "@/components/admin/filter-form";
 import { SearchInput } from "@/components/admin/search-input";
 import { SelectInput } from "@/components/admin/select-input";
+import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useConfigurationContext } from "../root/ConfigurationContext";
 import { TopToolbar } from "../layout/TopToolbar";
 import { DealArchivedList } from "./DealArchivedList";
 import { DealCreate } from "./DealCreate";
 import { DealEdit } from "./DealEdit";
-import { DealEmpty } from "./DealEmpty";
 import { DealListContent } from "./DealListContent";
 import { DealShow } from "./DealShow";
 import { OnlyMineInput } from "./OnlyMineInput";
@@ -70,19 +73,9 @@ const DealLayout = () => {
   const matchShow = matchPath("/deals/:id/show", location.pathname);
   const matchEdit = matchPath("/deals/:id", location.pathname);
 
-  const { data, isPending, filterValues } = useListContext();
-  const hasFilters = filterValues && Object.keys(filterValues).length > 0;
+  const { isPending } = useListContext();
 
   if (isPending) return null;
-  if (!data?.length && !hasFilters)
-    return (
-      <>
-        <DealEmpty>
-          <DealShow open={!!matchShow} id={matchShow?.params.id} />
-          <DealArchivedList />
-        </DealEmpty>
-      </>
-    );
 
   return (
     <div className="w-full">
@@ -95,13 +88,26 @@ const DealLayout = () => {
   );
 };
 
-const DealActions = () => (
-  <TopToolbar>
-    <FilterButton />
-    <ExportButton />
-    <CreateButton label="resources.deals.action.new" />
-  </TopToolbar>
-);
+const DealActions = () => {
+  const { identity } = useGetIdentity();
+  const isMobile = useIsMobile();
+
+  return (
+    <TopToolbar>
+      {identity?.administrator && !isMobile ? (
+        <Button asChild variant="outline">
+          <Link to="/settings">
+            <SlidersHorizontal className="size-4" />
+            Edit stages
+          </Link>
+        </Button>
+      ) : null}
+      <FilterButton />
+      <ExportButton />
+      {!isMobile ? <CreateButton label="resources.deals.action.new" /> : null}
+    </TopToolbar>
+  );
+};
 
 /**
  *

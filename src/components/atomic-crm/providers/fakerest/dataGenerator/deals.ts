@@ -41,6 +41,22 @@ export const generateDeals = (db: Db): Deal[] => {
       expected_closing_date,
       sales_id: company.sales_id!,
       index: 0,
+      lead_source: random.arrayElement([
+        "referral",
+        "linkedin",
+        "website",
+        "cold-outreach",
+        "networking",
+      ]),
+      client_type: (datatype.boolean() ? "new" : "recurring") as
+        | "new"
+        | "recurring",
+      next_follow_up_at: randomDate(
+        new Date(),
+        add(new Date(), { days: 30 }),
+      ).toISOString(),
+      new_commission_rate_snapshot: 20,
+      recurring_commission_rate_snapshot: 15,
     };
   });
   // compute index based on stage

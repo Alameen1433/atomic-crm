@@ -1,10 +1,11 @@
 import { DragDropContext, type OnDragEndResponder } from "@hello-pangea/dnd";
 import isEqual from "lodash/isEqual";
 import { useDataProvider, useListContext, type DataProvider } from "ra-core";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useConfigurationContext } from "../root/ConfigurationContext";
 import type { Deal } from "../types";
+import { getHorizontalAutoScrollSpeed } from "./dealAutoScroll";
 import { DealColumn } from "./DealColumn";
 import type { DealsByStage } from "./stages";
 import { getDealsByStage } from "./stages";
@@ -13,6 +14,10 @@ export const DealListContent = () => {
   const { dealStages } = useConfigurationContext();
   const { data: unorderedDeals, isPending, refetch } = useListContext<Deal>();
   const dataProvider = useDataProvider();
+  const pipelineRef = useRef<HTMLDivElement>(null);
+  const pointerXRef = useRef<number | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
 
   const [dealsByStage, setDealsByStage] = useState<DealsByStage>(
     getDealsByStage([], dealStages),
@@ -28,9 +33,51 @@ export const DealListContent = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unorderedDeals]);
 
+  const trackPointer = useCallback((event: PointerEvent) => {
+    pointerXRef.current = event.clientX;
+  }, []);
+
+  const runAutoScroll = useCallback(() => {
+    if (!isDraggingRef.current) return;
+
+    const container = pipelineRef.current;
+    const pointerX = pointerXRef.current;
+    if (container && pointerX !== null) {
+      const bounds = container.getBoundingClientRect();
+      const speed = getHorizontalAutoScrollSpeed(
+        pointerX,
+        bounds.left,
+        bounds.right,
+      );
+      if (speed !== 0) container.scrollLeft += speed;
+    }
+
+    autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
+  }, []);
+
+  const stopAutoScroll = useCallback(() => {
+    isDraggingRef.current = false;
+    pointerXRef.current = null;
+    window.removeEventListener("pointermove", trackPointer);
+    if (autoScrollFrameRef.current !== null) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+  }, [trackPointer]);
+
+  const startAutoScroll = useCallback(() => {
+    stopAutoScroll();
+    isDraggingRef.current = true;
+    window.addEventListener("pointermove", trackPointer, { passive: true });
+    autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
+  }, [runAutoScroll, stopAutoScroll, trackPointer]);
+
+  useEffect(() => stopAutoScroll, [stopAutoScroll]);
+
   if (isPending) return null;
 
   const onDragEnd: OnDragEndResponder = (result) => {
+    stopAutoScroll();
     const { destination, source } = result;
 
     if (!destination) {
@@ -71,15 +118,21 @@ export const DealListContent = () => {
   };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-4">
-        {dealStages.map((stage) => (
-          <DealColumn
-            stage={stage.value}
-            deals={dealsByStage[stage.value]}
-            key={stage.value}
-          />
-        ))}
+    <DragDropContext onDragStart={startAutoScroll} onDragEnd={onDragEnd}>
+      <div
+        ref={pipelineRef}
+        className="w-full overflow-x-auto overscroll-x-contain pb-4"
+      >
+        <div className="flex w-max min-w-full items-stretch gap-3 px-1">
+          {dealStages.map((stage, stageIndex) => (
+            <DealColumn
+              stage={stage.value}
+              deals={dealsByStage[stage.value]}
+              stageIndex={stageIndex}
+              key={stage.value}
+            />
+          ))}
+        </div>
       </div>
     </DragDropContext>
   );

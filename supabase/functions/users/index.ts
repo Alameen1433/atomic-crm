@@ -5,11 +5,28 @@ import { createErrorResponse } from "../_shared/utils.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
 
+const hasValidCommissionRates = (newRate: unknown, recurringRate: unknown) =>
+  typeof newRate === "number" &&
+  typeof recurringRate === "number" &&
+  Number.isFinite(newRate) &&
+  Number.isFinite(recurringRate) &&
+  newRate >= 0 &&
+  newRate <= 100 &&
+  recurringRate >= 0 &&
+  recurringRate <= 100;
+
 async function updateSaleDisabled(user_id: string, disabled: boolean) {
-  return await supabaseAdmin
+  const { data: sales, error } = await supabaseAdmin
     .from("sales")
     .update({ disabled: disabled ?? false })
-    .eq("user_id", user_id);
+    .eq("user_id", user_id)
+    .select("id");
+
+  if (!sales?.length || error) {
+    console.error("Error updating disabled status:", error);
+    throw error ?? new Error("Failed to update disabled status");
+  }
+  return sales.at(0);
 }
 
 async function updateSaleAdministrator(
@@ -33,11 +50,12 @@ async function createSale(
   user_id: string,
   data: {
     email: string;
-    password: string;
     first_name: string;
     last_name: string;
     disabled: boolean;
     administrator: boolean;
+    new_client_commission_rate: number;
+    recurring_client_commission_rate: number;
   },
 ) {
   const { data: sales, error: salesError } = await supabaseAdmin
@@ -67,11 +85,30 @@ async function updateSaleAvatar(user_id: string, avatar: string) {
 }
 
 async function inviteUser(req: Request, currentUserSale: any) {
-  const { email, password, first_name, last_name, disabled, administrator } =
-    await req.json();
+  const {
+    email,
+    password,
+    first_name,
+    last_name,
+    disabled,
+    administrator,
+    new_client_commission_rate = 20,
+    recurring_client_commission_rate = 15,
+  } = await req.json();
 
   if (!currentUserSale.administrator) {
     return createErrorResponse(401, "Not Authorized");
+  }
+  if (
+    !hasValidCommissionRates(
+      new_client_commission_rate,
+      recurring_client_commission_rate,
+    )
+  ) {
+    return createErrorResponse(
+      400,
+      "Commission rates must be between 0 and 100",
+    );
   }
 
   const { data, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -116,11 +153,12 @@ async function inviteUser(req: Request, currentUserSale: any) {
 
       const sale = await createSale(user.id, {
         email,
-        password,
         first_name,
         last_name,
         disabled,
         administrator,
+        new_client_commission_rate,
+        recurring_client_commission_rate,
       });
 
       return new Response(
@@ -163,10 +201,19 @@ async function inviteUser(req: Request, currentUserSale: any) {
   try {
     await updateSaleDisabled(user.id, disabled);
     const sale = await updateSaleAdministrator(user.id, administrator);
+    const { data: updatedSale, error: rateUpdateError } = await supabaseAdmin
+      .from("sales")
+      .update({ new_client_commission_rate, recurring_client_commission_rate })
+      .eq("id", sale.id)
+      .select("*")
+      .single();
+    if (rateUpdateError || !updatedSale) {
+      throw rateUpdateError ?? new Error("Failed to update commission rates");
+    }
 
     return new Response(
       JSON.stringify({
-        data: sale,
+        data: updatedSale,
       }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -187,6 +234,8 @@ async function patchUser(req: Request, currentUserSale: any) {
     avatar,
     administrator,
     disabled,
+    new_client_commission_rate,
+    recurring_client_commission_rate,
   } = await req.json();
   const { data: sale } = await supabaseAdmin
     .from("sales")
@@ -203,12 +252,42 @@ async function patchUser(req: Request, currentUserSale: any) {
     return createErrorResponse(401, "Not Authorized");
   }
 
+  const nextNewClientCommissionRate =
+    new_client_commission_rate ?? sale.new_client_commission_rate;
+  const nextRecurringClientCommissionRate =
+    recurring_client_commission_rate ?? sale.recurring_client_commission_rate;
+  const nextDisabled = currentUserSale.administrator
+    ? (disabled ?? sale.disabled)
+    : sale.disabled;
+  const nextAdministrator = currentUserSale.administrator
+    ? (administrator ?? sale.administrator)
+    : sale.administrator;
+
+  if (
+    currentUserSale.administrator &&
+    !hasValidCommissionRates(
+      nextNewClientCommissionRate,
+      nextRecurringClientCommissionRate,
+    )
+  ) {
+    return createErrorResponse(
+      400,
+      "Commission rates must be between 0 and 100",
+    );
+  }
+
+  const userAttributes = currentUserSale.administrator
+    ? {
+        email,
+        ban_duration: nextDisabled ? "87600h" : "none",
+        user_metadata: { first_name, last_name },
+      }
+    : {
+        email,
+        user_metadata: { first_name, last_name },
+      };
   const { data, error: userError } =
-    await supabaseAdmin.auth.admin.updateUserById(sale.user_id, {
-      email,
-      ban_duration: disabled ? "87600h" : "none",
-      user_metadata: { first_name, last_name },
-    });
+    await supabaseAdmin.auth.admin.updateUserById(sale.user_id, userAttributes);
 
   if (!data?.user || userError) {
     console.error("Error patching user:", userError);
@@ -240,11 +319,33 @@ async function patchUser(req: Request, currentUserSale: any) {
   }
 
   try {
-    await updateSaleDisabled(data.user.id, disabled);
-    const sale = await updateSaleAdministrator(data.user.id, administrator);
+    const ratesChanged =
+      Number(sale.new_client_commission_rate) !==
+        Number(nextNewClientCommissionRate) ||
+      Number(sale.recurring_client_commission_rate) !==
+        Number(nextRecurringClientCommissionRate);
+    if (ratesChanged) {
+      // Atomic rate update + audit record: both changes happen in a single
+      // transaction inside the RPC, so neither persists if the other fails.
+      const { error: ratesError } = await supabaseAdmin.rpc(
+        "update_sales_commission_rates",
+        {
+          p_sales_id: sale.id,
+          p_actor_sales_id: currentUserSale.id,
+          p_new_new_rate: nextNewClientCommissionRate,
+          p_new_recurring_rate: nextRecurringClientCommissionRate,
+        },
+      );
+      if (ratesError) throw ratesError;
+    }
+    await updateSaleDisabled(data.user.id, nextDisabled);
+    const updatedSale = await updateSaleAdministrator(
+      data.user.id,
+      nextAdministrator,
+    );
     return new Response(
       JSON.stringify({
-        data: sale,
+        data: updatedSale,
       }),
       {
         headers: {

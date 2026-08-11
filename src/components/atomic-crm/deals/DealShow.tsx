@@ -7,6 +7,8 @@ import {
   useDataProvider,
   useNotify,
   useRecordContext,
+  useGetIdentity,
+  useGetList,
   useRedirect,
   useRefresh,
   useTranslate,
@@ -28,6 +30,10 @@ import { useConfigurationContext } from "../root/ConfigurationContext";
 import type { Deal } from "../types";
 import { ContactList } from "./ContactList";
 import { findDealLabel, formatISODateString } from "./dealUtils";
+import { RecordPaymentDialog } from "../commissions/RecordPaymentDialog";
+import type { Commission } from "../types";
+import { useState } from "react";
+import { ReassignDealDialog } from "./ReassignDealDialog";
 
 export const DealShow = ({ open, id }: { open: boolean; id?: string }) => {
   const redirect = useRedirect();
@@ -52,6 +58,7 @@ const DealShowContent = () => {
   const translate = useTranslate();
   const { dealStages, dealCategories, currency } = useConfigurationContext();
   const record = useRecordContext<Deal>();
+  const { identity } = useGetIdentity();
   if (!record) return null;
 
   return (
@@ -71,6 +78,12 @@ const DealShowContent = () => {
               <h2 className="text-2xl font-semibold">{record.name}</h2>
             </div>
             <div className={`flex gap-2 ${record.archived_at ? "" : "pr-12"}`}>
+              {(identity as any)?.administrator && record.stage === "won" ? (
+                <RecordPaymentButton deal={record} />
+              ) : null}
+              {(identity as any)?.administrator ? (
+                <ReassignDealButton deal={record} />
+              ) : null}
               {record.archived_at ? (
                 <>
                   <UnarchiveButton record={record} />
@@ -182,6 +195,41 @@ const DealShowContent = () => {
           </div>
         </div>
       </div>
+    </>
+  );
+};
+
+const RecordPaymentButton = ({ deal }: { deal: Deal }) => {
+  const [open, setOpen] = useState(false);
+  const { data, isPending, error } = useGetList<Commission>("commissions", {
+    filter: { deal_id: deal.id },
+    pagination: { page: 1, perPage: 20 },
+    sort: { field: "created_at", order: "DESC" },
+  });
+  if (isPending || error) return null;
+  if (
+    data?.some(
+      (commission) => !["rejected", "reversed"].includes(commission.status),
+    )
+  ) {
+    return null;
+  }
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Record client payment</Button>
+      <RecordPaymentDialog deal={deal} open={open} onOpenChange={setOpen} />
+    </>
+  );
+};
+
+const ReassignDealButton = ({ deal }: { deal: Deal }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Reassign
+      </Button>
+      <ReassignDealDialog deal={deal} open={open} onOpenChange={setOpen} />
     </>
   );
 };

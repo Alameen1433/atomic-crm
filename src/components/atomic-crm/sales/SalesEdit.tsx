@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { KeyRound } from "lucide-react";
 import {
   useDataProvider,
   useEditController,
@@ -10,7 +12,9 @@ import {
 import type { SubmitHandler } from "react-hook-form";
 import { SimpleForm } from "@/components/admin/simple-form";
 import { CancelButton } from "@/components/admin/cancel-button";
+import { Confirm } from "@/components/admin/confirm";
 import { SaveButton } from "@/components/admin/form";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 import type { CrmDataProvider } from "../providers/types";
@@ -19,10 +23,69 @@ import { SalesInputs } from "./SalesInputs";
 
 function EditToolbar() {
   return (
-    <div className="flex justify-end gap-4">
-      <CancelButton />
-      <SaveButton />
+    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <ResetPartnerPasswordButton />
+      <div className="flex justify-end gap-4">
+        <CancelButton />
+        <SaveButton />
+      </div>
     </div>
+  );
+}
+
+function ResetPartnerPasswordButton() {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const record = useRecordContext<Sale>();
+  const dataProvider = useDataProvider<CrmDataProvider>();
+  const notify = useNotify();
+
+  const mutation = useMutation({
+    mutationKey: ["resetPartnerPassword", record?.id],
+    mutationFn: async () => {
+      if (!record) throw new Error("User not found");
+      return dataProvider.updatePassword(record.id);
+    },
+    onSuccess: () => {
+      setConfirmOpen(false);
+      notify(`A password reset email was sent to ${record?.email}.`, {
+        type: "success",
+        messageArgs: {
+          _: `A password reset email was sent to ${record?.email}.`,
+        },
+      });
+    },
+    onError: (error: Error) => {
+      notify(`Failed to send password reset email: ${error.message}`, {
+        type: "error",
+        messageArgs: {
+          _: `Failed to send password reset email: ${error.message}`,
+        },
+      });
+    },
+  });
+
+  if (!record) return null;
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setConfirmOpen(true)}
+      >
+        <KeyRound className="mr-2 size-4" />
+        Send password reset
+      </Button>
+      <Confirm
+        isOpen={confirmOpen}
+        loading={mutation.isPending}
+        title="Send password reset email?"
+        content={`A secure reset link will be sent to ${record.email}. The administrator will not see or choose the new password.`}
+        confirm="Send reset email"
+        onConfirm={() => mutation.mutate()}
+        onClose={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }
 

@@ -1,8 +1,18 @@
 import { type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
-export const MobileContent = ({ children }: { children: ReactNode }) => (
+export const MobileContent = ({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) => (
   <main
-    className="max-w-screen-xl mx-auto pt-18 px-4 pb-20 min-h-screen overflow-y-auto"
+    className={cn(
+      "mx-auto min-h-dvh w-full max-w-screen-xl overflow-x-hidden px-3 pt-18 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-4",
+      className,
+    )}
     id="main-content"
   >
     {children}

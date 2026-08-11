@@ -17,12 +17,15 @@ const getBaseAuthProvider = () =>
         id: sale.id,
         fullName: `${sale.first_name} ${sale.last_name}`,
         avatar: sale.avatar?.src,
+        administrator: sale.administrator,
+        new_client_commission_rate: sale.new_client_commission_rate,
+        recurring_client_commission_rate: sale.recurring_client_commission_rate,
       };
     },
   });
 
-// To speed up checks, we cache the initialization state
-// and the current sale in the local storage. They are cleared on logout.
+// Initialization is stable and cached. The current sales record is refreshed
+// so role and negotiated commission changes take effect without a new login.
 const IS_INITIALIZED_CACHE_KEY = "RaStore.auth.is_initialized";
 const CURRENT_SALE_CACHE_KEY = "RaStore.auth.current_sale";
 
@@ -40,10 +43,10 @@ export async function getIsInitialized() {
     return cachedValue === "true";
   }
 
-  const { data } = await getSupabaseClient()
+  const { data, error } = await getSupabaseClient()
     .from("init_state")
     .select("is_initialized");
-  const isInitialized = data?.at(0)?.is_initialized > 0;
+  const isInitialized = resolveInitializationState(data, error);
 
   if (isInitialized) {
     storage?.setItem(IS_INITIALIZED_CACHE_KEY, "true");
@@ -52,29 +55,48 @@ export async function getIsInitialized() {
   return isInitialized;
 }
 
-const getSale = async () => {
-  const storage = getLocalStorage();
-  const cachedValue = storage?.getItem(CURRENT_SALE_CACHE_KEY);
-  if (cachedValue != null) {
-    return JSON.parse(cachedValue);
+export function resolveInitializationState(
+  data: Array<{ is_initialized: number | string | null }> | null,
+  error: unknown,
+) {
+  if (error) throw error;
+
+  const initializedCount = data?.at(0)?.is_initialized;
+  if (initializedCount == null) {
+    throw new Error("Unable to verify whether the CRM is initialized");
   }
 
-  const { data: dataSession, error: errorSession } =
+  return Number(initializedCount) > 0;
+}
+
+export function resolveSupabaseResult<T>(data: T, error: unknown) {
+  if (error) throw error;
+  return data ?? undefined;
+}
+
+const getSale = async () => {
+  const storage = getLocalStorage();
+  const { data: sessionResult, error: sessionError } =
     await getSupabaseClient().auth.getSession();
+  const dataSession = resolveSupabaseResult(sessionResult, sessionError);
 
   // Shouldn't happen after login but just in case
-  if (dataSession?.session?.user == null || errorSession) {
+  if (dataSession?.session?.user == null) {
     return undefined;
   }
 
-  const { data: dataSale, error: errorSale } = await getSupabaseClient()
+  const { data: saleResult, error: saleError } = await getSupabaseClient()
     .from("sales")
-    .select("id, first_name, last_name, avatar, administrator")
+    .select(
+      "id, first_name, last_name, avatar, administrator, disabled, new_client_commission_rate, recurring_client_commission_rate",
+    )
     .match({ user_id: dataSession?.session?.user.id })
-    .single();
+    .eq("disabled", false)
+    .maybeSingle();
+  const dataSale = resolveSupabaseResult(saleResult, saleError);
 
   // Shouldn't happen either as all users are sales but just in case
-  if (dataSale == null || errorSale) {
+  if (dataSale == null) {
     return undefined;
   }
 
@@ -86,6 +108,7 @@ function clearCache() {
   const storage = getLocalStorage();
   storage?.removeItem(IS_INITIALIZED_CACHE_KEY);
   storage?.removeItem(CURRENT_SALE_CACHE_KEY);
+  storage?.removeItem("REACT_QUERY_OFFLINE_CACHE");
 }
 
 export const getAuthProvider = (): AuthProvider => {
@@ -141,7 +164,16 @@ export const getAuthProvider = (): AuthProvider => {
         };
       }
 
-      return baseAuthProvider.checkAuth(params);
+      await baseAuthProvider.checkAuth(params);
+      const sale = await getSale();
+      if (sale == null) {
+        clearCache();
+        await getSupabaseClient().auth.signOut();
+        throw {
+          redirectTo: "/login",
+          message: "This CRM account is disabled",
+        };
+      }
     },
     canAccess: async (params) => {
       const isInitialized = await getIsInitialized();

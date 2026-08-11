@@ -3,7 +3,7 @@ import { SortButton } from "@/components/admin/sort-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus } from "lucide-react";
+import { Pencil, UserPlus } from "lucide-react";
 import {
   RecordContextProvider,
   ShowBase,
@@ -60,14 +60,22 @@ const CompanyShowContentMobile = () => {
   return (
     <>
       <MobileHeader>
-        <MobileBackButton to="/" />
-        <div className="flex flex-1">
-          <Link to="/">
+        <MobileBackButton to="/companies" />
+        <div className="min-w-0 flex-1">
+          <Link to="/companies">
             <h1 className="text-xl font-semibold">
               {translate("resources.companies.forcedCaseName")}
             </h1>
           </Link>
         </div>
+        <Button asChild variant="ghost" size="icon">
+          <Link
+            to={`/companies/${record.id}`}
+            aria-label={translate("resources.companies.action.edit")}
+          >
+            <Pencil />
+          </Link>
+        </Button>
       </MobileHeader>
 
       <MobileContent>

@@ -39,6 +39,7 @@ export const NumberInput = (props: NumberInputProps) => {
     format: _formatProp,
     parse = convertStringToNumber,
     onFocus,
+    onWheel,
     helperText,
     ...rest
   } = props;
@@ -71,6 +72,18 @@ export const NumberInput = (props: NumberInputProps) => {
     setValue(field.value?.toString() ?? "");
   };
 
+  const handleWheel = (event: React.WheelEvent<HTMLInputElement>) => {
+    onWheel?.(event);
+    if (
+      !event.defaultPrevented &&
+      event.currentTarget === document.activeElement
+    ) {
+      // Native number inputs increment or decrement while focused. Blurring keeps
+      // ordinary form scrolling from silently changing financial values.
+      event.currentTarget.blur();
+    }
+  };
+
   useEffect(() => {
     if (!hasFocus.current) {
       setValue(field.value?.toString() ?? "");
@@ -98,6 +111,7 @@ export const NumberInput = (props: NumberInputProps) => {
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onWheel={handleWheel}
         />
       </FormControl>
       <InputHelperText helperText={helperText} />

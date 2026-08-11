@@ -4,7 +4,12 @@ import type {
   DashboardComponent,
   LayoutComponent,
 } from "ra-core";
-import { CustomRoutes, localStorageStore, Resource } from "ra-core";
+import {
+  CustomRoutes,
+  localStorageStore,
+  Resource,
+  useTranslate,
+} from "ra-core";
 import { useEffect, useMemo } from "react";
 import { Route } from "react-router";
 import { QueryClient } from "@tanstack/react-query";
@@ -20,8 +25,12 @@ import contacts from "../contacts";
 import { Dashboard } from "../dashboard/Dashboard";
 import { MobileDashboard } from "../dashboard/MobileDashboard";
 import deals from "../deals";
+import commissions from "../commissions";
+import { CommissionList } from "../commissions/CommissionList";
 import { Layout } from "../layout/Layout";
 import { MobileLayout } from "../layout/MobileLayout";
+import MobileHeader from "../layout/MobileHeader";
+import { MobileContent } from "../layout/MobileContent";
 import { SignupPage } from "../login/SignupPage";
 import { ConfirmationRequired } from "../login/ConfirmationRequired";
 import { ImportPage } from "../misc/ImportPage";
@@ -58,6 +67,7 @@ import { MobileTasksList } from "../tasks/MobileTasksList.tsx";
 import { ContactListMobile } from "../contacts/ContactList.tsx";
 import { ContactShow } from "../contacts/ContactShow.tsx";
 import { CompanyShow } from "../companies/CompanyShow.tsx";
+import { CompanyListMobile } from "../companies/CompanyList.tsx";
 import { NoteShowPage } from "../notes/NoteShowPage.tsx";
 
 const defaultStore = localStorageStore(undefined, "CRM");
@@ -263,6 +273,7 @@ const DesktopAdmin = (
         <Route path={ChangelogPage.path} element={<ChangelogPage />} />
       </CustomRoutes>
       <Resource name="deals" {...deals} />
+      <Resource name="commissions" {...commissions} />
       <Resource name="contacts" {...contacts} />
       <Resource name="companies" {...companies} />
       <Resource name="contact_notes" />
@@ -334,9 +345,46 @@ const MobileAdmin = (
         >
           <Route path=":id/notes/:noteId" element={<NoteShowPage />} />
         </Resource>
-        <Resource name="companies" show={CompanyShow} />
+        <Resource
+          name="companies"
+          list={CompanyListMobile}
+          create={companies.create}
+          edit={companies.edit}
+          show={CompanyShow}
+        />
         <Resource name="tasks" list={MobileTasksList} />
+        <Resource name="deals" list={MobileDealList} />
+        <Resource name="commissions" list={MobileCommissionList} />
+        <Resource name="sales" {...sales} />
       </Admin>
     </PersistQueryClientProvider>
   );
 };
+
+const MobileDealList = () => {
+  const translate = useTranslate();
+  const DealList = deals.list;
+  return (
+    <>
+      <MobileHeader>
+        <h1 className="text-lg font-semibold">
+          {translate("resources.deals.name", { smart_count: 2 })}
+        </h1>
+      </MobileHeader>
+      <MobileContent className="px-2">
+        <DealList />
+      </MobileContent>
+    </>
+  );
+};
+
+const MobileCommissionList = () => (
+  <>
+    <MobileHeader>
+      <h1 className="text-lg font-semibold">Commissions</h1>
+    </MobileHeader>
+    <MobileContent>
+      <CommissionList />
+    </MobileContent>
+  </>
+);

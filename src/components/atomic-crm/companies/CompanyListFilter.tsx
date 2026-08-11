@@ -1,15 +1,17 @@
 import { Building, Truck, Users } from "lucide-react";
-import { FilterLiveForm, useGetIdentity, useTranslate } from "ra-core";
+import { useGetIdentity, useTranslate } from "ra-core";
 import { ToggleFilterButton } from "@/components/admin/toggle-filter-button";
-import { SearchInput } from "@/components/admin/search-input";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { FilterCategory } from "../filters/FilterCategory";
+import { ResponsiveFilters } from "../misc/ResponsiveFilters";
 import { useConfigurationContext } from "../root/ConfigurationContext";
 import { getTranslatedCompanySizeLabel } from "./getTranslatedCompanySizeLabel";
 import { sizes } from "./sizes";
 
 export const CompanyListFilter = () => {
   const { identity } = useGetIdentity();
+  const isMobile = useIsMobile();
   const { companySectors } = useConfigurationContext();
   const translate = useTranslate();
   const translatedSizes = sizes.map((size) => ({
@@ -17,21 +19,18 @@ export const CompanyListFilter = () => {
     name: getTranslatedCompanySizeLabel(size, translate),
   }));
   return (
-    <div className="w-52 min-w-52 flex flex-col gap-8">
-      <FilterLiveForm>
-        <SearchInput source="q" />
-      </FilterLiveForm>
-
+    <ResponsiveFilters>
       <FilterCategory
         icon={<Building className="h-4 w-4" />}
         label="resources.companies.fields.size"
       >
         {translatedSizes.map((size) => (
           <ToggleFilterButton
-            className="w-full justify-between"
+            className="h-10 w-full justify-between md:h-8"
             label={size.name}
             key={size.name}
             value={{ size: size.id }}
+            size={isMobile ? "lg" : undefined}
           />
         ))}
       </FilterCategory>
@@ -42,10 +41,11 @@ export const CompanyListFilter = () => {
       >
         {companySectors.map((sector) => (
           <ToggleFilterButton
-            className="w-full justify-between"
+            className="h-10 w-full justify-between md:h-8"
             label={sector.label}
             key={sector.value}
             value={{ sector: sector.value }}
+            size={isMobile ? "lg" : undefined}
           />
         ))}
       </FilterCategory>
@@ -55,11 +55,12 @@ export const CompanyListFilter = () => {
         label="resources.companies.fields.sales_id"
       >
         <ToggleFilterButton
-          className="w-full justify-between"
+          className="h-10 w-full justify-between md:h-8"
           label={translate("crm.common.me")}
           value={{ sales_id: identity?.id }}
+          size={isMobile ? "lg" : undefined}
         />
       </FilterCategory>
-    </div>
+    </ResponsiveFilters>
   );
 };

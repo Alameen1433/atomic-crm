@@ -418,6 +418,10 @@
           "type": "registry:component"
         },
         {
+          "path": "src/components/atomic-crm/misc/localDate.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "src/components/atomic-crm/misc/isLinkedInUrl.ts",
           "type": "registry:component"
         },
@@ -478,7 +482,15 @@
           "type": "registry:component"
         },
         {
+          "path": "src/components/atomic-crm/misc/ArchiveRecordButton.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "src/components/atomic-crm/misc/ActiveFilterButton.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "src/components/atomic-crm/login/authConfig.ts",
           "type": "registry:component"
         },
         {
@@ -551,6 +563,14 @@
         },
         {
           "path": "src/components/atomic-crm/deals/dealUtils.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "src/components/atomic-crm/deals/dealAutoScroll.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "src/components/atomic-crm/deals/ReassignDealDialog.tsx",
           "type": "registry:component"
         },
         {
@@ -795,6 +815,18 @@
         },
         {
           "path": "src/components/atomic-crm/companies/AutocompleteCompanyInput.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "src/components/atomic-crm/commissions/index.ts",
+          "type": "registry:component"
+        },
+        {
+          "path": "src/components/atomic-crm/commissions/RecordPaymentDialog.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "src/components/atomic-crm/commissions/CommissionList.tsx",
           "type": "registry:component"
         },
         {

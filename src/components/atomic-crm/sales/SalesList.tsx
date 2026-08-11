@@ -54,6 +54,14 @@ export function SalesList() {
         <DataTable.Col source="first_name" />
         <DataTable.Col source="last_name" />
         <DataTable.Col source="email" />
+        <DataTable.Col
+          source="new_client_commission_rate"
+          label="New client %"
+        />
+        <DataTable.Col
+          source="recurring_client_commission_rate"
+          label="Recurring %"
+        />
         <DataTable.Col label={false}>
           <OptionsField />
         </DataTable.Col>

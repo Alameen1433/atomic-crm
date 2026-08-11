@@ -1,6 +1,7 @@
 import { Globe, Linkedin, Phone } from "lucide-react";
 import {
   useGetIdentity,
+  CanAccess,
   useLocaleState,
   useRecordContext,
   useTranslate,
@@ -19,6 +20,7 @@ import type { Company } from "../types";
 import { getTranslatedCompanySizeLabel } from "./getTranslatedCompanySizeLabel";
 import { sizes } from "./sizes";
 import { useGetSalesName } from "../sales/useGetSalesName";
+import { ArchiveRecordButton } from "../misc/ArchiveRecordButton";
 
 interface CompanyAsideProps {
   link?: string;
@@ -49,10 +51,13 @@ export const CompanyAside = ({ link = "edit" }: CompanyAsideProps) => {
 
       {link !== "edit" && (
         <div className="mt-6 pt-6 border-t hidden sm:flex flex-col gap-2 items-start">
-          <DeleteButton
-            className="h-6 cursor-pointer hover:bg-destructive/10! text-destructive! border-destructive! focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
-            size="sm"
-          />
+          <ArchiveRecordButton />
+          <CanAccess resource="companies" action="delete">
+            <DeleteButton
+              className="h-6 cursor-pointer hover:bg-destructive/10! text-destructive! border-destructive! focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40"
+              size="sm"
+            />
+          </CanAccess>
         </div>
       )}
     </div>

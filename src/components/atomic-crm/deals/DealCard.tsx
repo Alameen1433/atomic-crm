@@ -1,13 +1,26 @@
 import { Draggable } from "@hello-pangea/dnd";
+import { CalendarDays, GripVertical } from "lucide-react";
 import { useRedirect, RecordContextProvider } from "ra-core";
 import { ReferenceField } from "@/components/admin/reference-field";
 import { NumberField } from "@/components/admin/number-field";
 import { SelectField } from "@/components/admin/select-field";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 import { CompanyAvatar } from "../companies/CompanyAvatar";
 import { useConfigurationContext } from "../root/ConfigurationContext";
 import type { Deal } from "../types";
+
+const expectedCloseFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
+const followUpFormatter = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+});
 
 export const DealCard = ({ deal, index }: { deal: Deal; index: number }) => {
   if (!deal) return null;
@@ -48,23 +61,26 @@ export const DealCardContent = ({
     >
       <RecordContextProvider value={deal}>
         <Card
-          className={`py-3 transition-all duration-200 ${
+          className={`rounded-lg py-0 transition-all duration-200 ${
             snapshot?.isDragging
-              ? "opacity-90 transform rotate-1 shadow-lg"
-              : "shadow-sm hover:shadow-md"
+              ? "rotate-1 border-primary/40 opacity-95 shadow-xl"
+              : "shadow-xs hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
           }`}
         >
-          <CardContent className="px-3 flex flex-col">
-            <div className="flex-1 flex">
-              <p className="flex-1 text-sm font-medium mb-2">
-                <ReferenceField
-                  source="company_id"
-                  reference="companies"
-                  link={false}
-                />
-                {" - "}
-                {deal.name}
-              </p>
+          <CardContent className="flex flex-col gap-3 p-3">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-muted-foreground">
+                  <ReferenceField
+                    source="company_id"
+                    reference="companies"
+                    link={false}
+                  />
+                </p>
+                <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug">
+                  {deal.name}
+                </p>
+              </div>
               <ReferenceField
                 source="company_id"
                 reference="companies"
@@ -72,26 +88,56 @@ export const DealCardContent = ({
               >
                 <CompanyAvatar width={20} height={20} />
               </ReferenceField>
+              <GripVertical className="mt-0.5 size-4 shrink-0 text-muted-foreground/60" />
             </div>
-            <p className="text-xs text-muted-foreground">
-              <NumberField
-                source="amount"
-                options={{
-                  notation: "compact",
-                  style: "currency",
-                  currency,
-                  currencyDisplay: "narrowSymbol",
-                  minimumSignificantDigits: 3,
-                }}
-              />
-              {deal.category && ", "}
-              <SelectField
-                source="category"
-                choices={dealCategories}
-                optionText="label"
-                optionValue="value"
-              />
-            </p>
+
+            <div className="flex items-end justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Value
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  <NumberField
+                    source="amount"
+                    locales="en-IN"
+                    options={{
+                      notation: "standard",
+                      style: "currency",
+                      currency,
+                      currencyDisplay: "narrowSymbol",
+                      maximumFractionDigits: 2,
+                    }}
+                  />
+                </p>
+              </div>
+              {deal.category ? (
+                <Badge variant="secondary" className="max-w-[9rem] truncate">
+                  <SelectField
+                    source="category"
+                    choices={dealCategories}
+                    optionText="label"
+                    optionValue="value"
+                  />
+                </Badge>
+              ) : null}
+            </div>
+
+            {deal.next_follow_up_at || deal.expected_closing_date ? (
+              <div className="flex items-center gap-1.5 border-t pt-2 text-[11px] text-muted-foreground">
+                <CalendarDays className="size-3.5" />
+                <span>
+                  {deal.next_follow_up_at ? "Follow up" : "Expected close"}:{" "}
+                  {(deal.next_follow_up_at
+                    ? followUpFormatter
+                    : expectedCloseFormatter
+                  ).format(
+                    new Date(
+                      deal.next_follow_up_at ?? deal.expected_closing_date,
+                    ),
+                  )}
+                </span>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </RecordContextProvider>
