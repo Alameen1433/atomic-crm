@@ -562,6 +562,10 @@
           "type": "registry:component"
         },
         {
+          "path": "src/components/atomic-crm/deals/dealAutoScroll.ts",
+          "type": "registry:component"
+        },
+        {
           "path": "src/components/atomic-crm/deals/ReassignDealDialog.tsx",
           "type": "registry:component"
         },
