@@ -13,6 +13,7 @@ import { FilterButton } from "@/components/admin/filter-form";
 import { SearchInput } from "@/components/admin/search-input";
 import { SelectInput } from "@/components/admin/select-input";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useConfigurationContext } from "../root/ConfigurationContext";
 import { TopToolbar } from "../layout/TopToolbar";
@@ -89,10 +90,11 @@ const DealLayout = () => {
 
 const DealActions = () => {
   const { identity } = useGetIdentity();
+  const isMobile = useIsMobile();
 
   return (
     <TopToolbar>
-      {identity?.administrator ? (
+      {identity?.administrator && !isMobile ? (
         <Button asChild variant="outline">
           <Link to="/settings">
             <SlidersHorizontal className="size-4" />
@@ -102,7 +104,7 @@ const DealActions = () => {
       ) : null}
       <FilterButton />
       <ExportButton />
-      <CreateButton label="resources.deals.action.new" />
+      {!isMobile ? <CreateButton label="resources.deals.action.new" /> : null}
     </TopToolbar>
   );
 };

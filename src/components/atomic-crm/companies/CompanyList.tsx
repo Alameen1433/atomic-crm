@@ -1,4 +1,5 @@
 import {
+  ListBase,
   useGetIdentity,
   useGetList,
   useListContext,
@@ -11,6 +12,8 @@ import { ListPagination } from "@/components/admin/list-pagination";
 import { SortButton } from "@/components/admin/sort-button";
 
 import { TopToolbar } from "../layout/TopToolbar";
+import MobileHeader from "../layout/MobileHeader";
+import { MobileContent } from "../layout/MobileContent";
 import type { Company } from "../types";
 import { CompanyEmpty } from "./CompanyEmpty";
 import { CompanyListFilter } from "./CompanyListFilter";
@@ -30,6 +33,45 @@ export const CompanyList = () => {
     >
       <CompanyListLayout />
     </List>
+  );
+};
+
+export const CompanyListMobile = () => {
+  const { identity } = useGetIdentity();
+  if (!identity) return null;
+
+  return (
+    <ListBase
+      perPage={25}
+      sort={{ field: "name", order: "ASC" }}
+      filter={{ "archived_at@is": null }}
+    >
+      <CompanyListLayoutMobile />
+    </ListBase>
+  );
+};
+
+const CompanyListLayoutMobile = () => {
+  const { data, isPending, filterValues } = useListContext<Company>();
+  const hasFilters = filterValues && Object.keys(filterValues).length > 0;
+
+  return (
+    <>
+      <MobileHeader>
+        <CompanyListFilter />
+      </MobileHeader>
+      <MobileContent>
+        {!isPending && !data?.length && !hasFilters ? (
+          <CompanyEmpty />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <DuplicateCompanyWarning />
+            <ImageList />
+            <ListPagination rowsPerPageOptions={[10, 25, 50]} />
+          </div>
+        )}
+      </MobileContent>
+    </>
   );
 };
 
