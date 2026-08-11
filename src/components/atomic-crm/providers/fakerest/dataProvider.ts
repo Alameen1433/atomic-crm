@@ -280,7 +280,7 @@ export const createDataProvider = ({
         throw new Error("User not found");
       }
       const { data: previousData } = await dataProvider.getOne<Sale>("sales", {
-        id: currentUser.id,
+        id,
       });
 
       if (!previousData) {

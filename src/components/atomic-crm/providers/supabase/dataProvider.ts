@@ -180,19 +180,22 @@ const getDataProviderWithCustomMethods = () => {
     },
     async updatePassword(id: Identifier) {
       const { data: passwordUpdated, error } =
-        await getSupabaseClient().functions.invoke<boolean>("update_password", {
-          method: "PATCH",
-          body: {
-            sales_id: id,
+        await getSupabaseClient().functions.invoke<{ data: boolean }>(
+          "update_password",
+          {
+            method: "PATCH",
+            body: {
+              sales_id: id,
+            },
           },
-        });
+        );
 
-      if (!passwordUpdated || error) {
+      if (!passwordUpdated?.data || error) {
         console.error("update_password.error", error);
         throw new Error("Failed to update password");
       }
 
-      return passwordUpdated;
+      return passwordUpdated.data;
     },
     async unarchiveDeal(deal: Deal) {
       // get all deals where stage is the same as the deal to unarchive
