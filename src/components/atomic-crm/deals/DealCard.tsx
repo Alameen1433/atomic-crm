@@ -88,12 +88,13 @@ export const DealCardContent = ({
                 <p className="text-sm font-semibold tabular-nums">
                   <NumberField
                     source="amount"
+                    locales="en-IN"
                     options={{
-                      notation: "compact",
+                      notation: "standard",
                       style: "currency",
                       currency,
                       currencyDisplay: "narrowSymbol",
-                      maximumFractionDigits: 1,
+                      maximumFractionDigits: 2,
                     }}
                   />
                 </p>

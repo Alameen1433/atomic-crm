@@ -50,6 +50,11 @@ const money = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+const getDisplayedPayoutAmount = (commission: Commission) =>
+  commission.status === "rejected" || commission.status === "reversed"
+    ? 0
+    : Number(commission.balance_amount);
+
 export const CommissionList = () => (
   <List
     title="Commissions"
@@ -71,7 +76,7 @@ const CommissionBoard = () => {
     () =>
       data.reduce(
         (summary, commission) => {
-          summary[commission.status] += Number(commission.balance_amount);
+          summary[commission.status] += getDisplayedPayoutAmount(commission);
           return summary;
         },
         Object.fromEntries(statuses.map((status) => [status, 0])) as Record<
@@ -125,26 +130,39 @@ const CommissionBoard = () => {
           payment on a won deal.
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-3">
           {statuses.map((status) => {
             const records = data.filter((record) => record.status === status);
             return (
               <section
                 key={status}
-                className="w-80 shrink-0 rounded-xl bg-muted/45 p-3"
+                className="flex h-[min(34rem,calc(100vh-19rem))] min-h-80 w-72 shrink-0 flex-col rounded-xl border bg-muted/45 p-2.5"
               >
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-medium">{statusLabels[status]}</h3>
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <div>
+                    <h3 className="font-medium leading-tight">
+                      {statusLabels[status]}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {money.format(totals[status])}
+                    </p>
+                  </div>
                   <Badge variant="secondary">{records.length}</Badge>
                 </div>
-                <div className="space-y-3">
-                  {records.map((record) => (
-                    <CommissionCard
-                      key={record.id}
-                      commission={record}
-                      isAdmin={isAdmin}
-                    />
-                  ))}
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                  {records.length === 0 ? (
+                    <div className="grid h-full place-items-center rounded-lg border border-dashed px-4 text-center text-xs text-muted-foreground">
+                      No commissions
+                    </div>
+                  ) : (
+                    records.map((record) => (
+                      <CommissionCard
+                        key={record.id}
+                        commission={record}
+                        isAdmin={isAdmin}
+                      />
+                    ))
+                  )}
                 </div>
               </section>
             );
@@ -156,7 +174,7 @@ const CommissionBoard = () => {
 };
 
 const Summary = ({ label, value }: { label: string; value: number }) => (
-  <Card>
+  <Card className="gap-0 py-0">
     <CardContent className="p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
@@ -182,11 +200,18 @@ const CommissionCard = ({
     { enabled: isAdmin },
   );
   const [action, setAction] = useState<Action | null>(null);
+  const payoutLabel =
+    commission.status === "paid"
+      ? "Paid out"
+      : commission.status === "rejected" || commission.status === "reversed"
+        ? "Not payable"
+        : "Amount due";
+  const payoutAmount = getDisplayedPayoutAmount(commission);
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="space-y-1 p-4 pb-2">
-        <CardTitle className="text-base">
+    <Card className="gap-0 py-0 shadow-sm">
+      <CardHeader className="space-y-0.5 px-3 pt-3 pb-2">
+        <CardTitle className="truncate text-sm" title={deal?.name}>
           {deal?.name ?? `Deal #${commission.deal_id}`}
         </CardTitle>
         {isAdmin && partner ? (
@@ -195,8 +220,8 @@ const CommissionCard = ({
           </p>
         ) : null}
       </CardHeader>
-      <CardContent className="space-y-3 p-4 pt-1">
-        <div className="grid grid-cols-2 gap-2 text-sm">
+      <CardContent className="space-y-2 px-3 pb-3">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-sm">
           <Detail
             label="Invoice"
             value={money.format(Number(commission.final_invoice_total))}
@@ -206,10 +231,7 @@ const CommissionCard = ({
             label="Commission"
             value={money.format(Number(commission.commission_amount))}
           />
-          <Detail
-            label="Balance"
-            value={money.format(Number(commission.balance_amount))}
-          />
+          <Detail label={payoutLabel} value={money.format(payoutAmount)} />
         </div>
         <div className="flex items-center justify-between text-xs">
           <Badge variant="outline">
