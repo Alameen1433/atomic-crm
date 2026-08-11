@@ -69,27 +69,34 @@ export function resolveInitializationState(
   return Number(initializedCount) > 0;
 }
 
+export function resolveSupabaseResult<T>(data: T, error: unknown) {
+  if (error) throw error;
+  return data ?? undefined;
+}
+
 const getSale = async () => {
   const storage = getLocalStorage();
-  const { data: dataSession, error: errorSession } =
+  const { data: sessionResult, error: sessionError } =
     await getSupabaseClient().auth.getSession();
+  const dataSession = resolveSupabaseResult(sessionResult, sessionError);
 
   // Shouldn't happen after login but just in case
-  if (dataSession?.session?.user == null || errorSession) {
+  if (dataSession?.session?.user == null) {
     return undefined;
   }
 
-  const { data: dataSale, error: errorSale } = await getSupabaseClient()
+  const { data: saleResult, error: saleError } = await getSupabaseClient()
     .from("sales")
     .select(
       "id, first_name, last_name, avatar, administrator, disabled, new_client_commission_rate, recurring_client_commission_rate",
     )
     .match({ user_id: dataSession?.session?.user.id })
     .eq("disabled", false)
-    .single();
+    .maybeSingle();
+  const dataSale = resolveSupabaseResult(saleResult, saleError);
 
   // Shouldn't happen either as all users are sales but just in case
-  if (dataSale == null || errorSale) {
+  if (dataSale == null) {
     return undefined;
   }
 

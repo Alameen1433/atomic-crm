@@ -821,9 +821,9 @@ begin
                 select 1
                 from jsonb_array_elements(source_contact.phone_jsonb) source_phone
                 join jsonb_array_elements(c.phone_jsonb) target_phone
-                  on regexp_replace(target_phone.value ->> 'number', '\\D', '', 'g')
-                    = regexp_replace(source_phone.value ->> 'number', '\\D', '', 'g')
-                where regexp_replace(source_phone.value ->> 'number', '\\D', '', 'g') <> ''
+                  on regexp_replace(target_phone.value ->> 'number', '\D', '', 'g')
+                    = regexp_replace(source_phone.value ->> 'number', '\D', '', 'g')
+                where regexp_replace(source_phone.value ->> 'number', '\D', '', 'g') <> ''
               )
             )
             or (
@@ -1007,11 +1007,12 @@ CREATE OR REPLACE FUNCTION "public"."can_access_legacy_attachment"("object_name"
     from (
       select n.sales_id, unnest(n.attachments) as attachment
       from public.contact_notes n
+      where n.sales_id = public.current_sales_id()
       union all
       select n.sales_id, unnest(n.attachments) as attachment
       from public.deal_notes n
+      where n.sales_id = public.current_sales_id()
     ) note_attachment
-    where note_attachment.sales_id = public.current_sales_id()
-      and note_attachment.attachment ->> 'path' = object_name
+    where note_attachment.attachment ->> 'path' = object_name
   );
 $$;

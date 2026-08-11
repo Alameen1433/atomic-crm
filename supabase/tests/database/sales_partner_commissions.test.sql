@@ -1,6 +1,6 @@
 begin;
 
-select plan(29);
+select plan(30);
 
 select ok(
   has_table_privilege('authenticated', 'public.activity_log', 'SELECT'),
@@ -159,6 +159,23 @@ insert into public.deals (
   current_date, 1, 'new'
 ) returning id as reassign_deal_id \gset
 
+insert into public.companies (name)
+values ('Formatted Phone Client') returning id as phone_company_id \gset
+insert into public.contacts (
+  first_name, last_name, company_id, email_jsonb, phone_jsonb
+) values (
+  'Phone', 'Match', :phone_company_id, '[]',
+  '[{"type":"work","number":"+91 98765-43210"}]'
+) returning id as phone_contact_id \gset
+insert into public.deals (
+  name, company_id, contact_ids, category, stage, description, amount,
+  expected_closing_date, index, client_type
+) values (
+  'Formatted Phone Reassignment', :phone_company_id,
+  array[:phone_contact_id]::bigint[], 'custom-software', 'new-lead',
+  'Phone normalization test', 1000, current_date, 2, 'new'
+) returning id as phone_reassign_deal_id \gset
+
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', true);
 select is((select count(*) from public.companies), 0::bigint, 'other partner cannot see the company');
 select is((select count(*) from public.contacts), 0::bigint, 'other partner cannot see the contact');
@@ -176,6 +193,15 @@ insert into public.contacts (
   'Private', 'Contact', :unrelated_company_id, '[]', '[]'
 ) returning id as misleading_contact_id \gset
 
+insert into public.companies (name)
+values ('Formatted Phone Client') returning id as target_phone_company_id \gset
+insert into public.contacts (
+  first_name, last_name, company_id, email_jsonb, phone_jsonb
+) values (
+  'Phone', 'Match', :target_phone_company_id, '[]',
+  '[{"type":"work","number":"919876543210"}]'
+) returning id as target_phone_contact_id \gset
+
 select throws_ok(
   format(
     'select public.record_client_payment(%s, %L, %s, %s, now(), null, null)',
@@ -192,6 +218,16 @@ select isnt(
   (select contact_ids[1] from public.deals where id = :reassign_deal_id),
   :misleading_contact_id::bigint,
   'reassignment does not reuse a same-name contact from another company'
+);
+select public.reassign_deal(
+  :phone_reassign_deal_id,
+  :partner_b_id,
+  'Coverage for normalized phone matching'
+);
+select is(
+  (select contact_ids[1] from public.deals where id = :phone_reassign_deal_id),
+  :target_phone_contact_id::bigint,
+  'reassignment reuses a contact whose formatted phone number matches'
 );
 select throws_ok(
   format(

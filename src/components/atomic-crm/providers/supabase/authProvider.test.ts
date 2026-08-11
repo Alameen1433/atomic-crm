@@ -1,4 +1,7 @@
-import { resolveInitializationState } from "./authProvider";
+import {
+  resolveInitializationState,
+  resolveSupabaseResult,
+} from "./authProvider";
 
 describe("resolveInitializationState", () => {
   it("reports an initialized CRM when a user exists", () => {
@@ -23,5 +26,23 @@ describe("resolveInitializationState", () => {
     expect(() => resolveInitializationState([], null)).toThrow(
       "Unable to verify whether the CRM is initialized",
     );
+  });
+});
+
+describe("resolveSupabaseResult", () => {
+  it("returns successful query data", () => {
+    const sale = { id: 1, disabled: false };
+
+    expect(resolveSupabaseResult(sale, null)).toBe(sale);
+  });
+
+  it("preserves an explicit missing record result", () => {
+    expect(resolveSupabaseResult(null, null)).toBeUndefined();
+  });
+
+  it("propagates query errors instead of treating the account as disabled", () => {
+    const error = new Error("Supabase is unreachable");
+
+    expect(() => resolveSupabaseResult(null, error)).toThrow(error);
   });
 });
