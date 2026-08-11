@@ -339,10 +339,13 @@ async function patchUser(req: Request, currentUserSale: any) {
       if (ratesError) throw ratesError;
     }
     await updateSaleDisabled(data.user.id, nextDisabled);
-    const sale = await updateSaleAdministrator(data.user.id, nextAdministrator);
+    const updatedSale = await updateSaleAdministrator(
+      data.user.id,
+      nextAdministrator,
+    );
     return new Response(
       JSON.stringify({
-        data: sale,
+        data: updatedSale,
       }),
       {
         headers: {

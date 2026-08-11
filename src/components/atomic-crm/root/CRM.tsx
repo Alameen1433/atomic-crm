@@ -355,6 +355,7 @@ const MobileAdmin = (
         <Resource name="tasks" list={MobileTasksList} />
         <Resource name="deals" list={MobileDealList} />
         <Resource name="commissions" list={MobileCommissionList} />
+        <Resource name="sales" {...sales} />
       </Admin>
     </PersistQueryClientProvider>
   );

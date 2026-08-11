@@ -15,9 +15,10 @@ import {
   Menu,
   Plus,
   Settings,
+  UserCog,
   Users,
 } from "lucide-react";
-import { useTranslate } from "ra-core";
+import { CanAccess, useTranslate } from "ra-core";
 import { Link, matchPath, useLocation, useMatch } from "react-router";
 import { ContactCreateSheet } from "../contacts/ContactCreateSheet";
 import { useState } from "react";
@@ -43,6 +44,8 @@ export const MobileNavigation = () => {
     currentPath = "/commissions";
   } else if (matchPath("/settings/*", location.pathname)) {
     currentPath = "/settings";
+  } else if (matchPath("/sales/*", location.pathname)) {
+    currentPath = "/sales";
   } else {
     currentPath = false;
   }
@@ -200,7 +203,7 @@ const CreateButton = () => {
 
 const MoreButton = ({ currentPath }: { currentPath: string | boolean }) => {
   const translate = useTranslate();
-  const isActive = ["/commissions", "/tasks", "/settings"].includes(
+  const isActive = ["/commissions", "/tasks", "/settings", "/sales"].includes(
     String(currentPath),
   );
 
@@ -231,6 +234,14 @@ const MoreButton = ({ currentPath }: { currentPath: string | boolean }) => {
             {translate("resources.tasks.name", { smart_count: 2 })}
           </Link>
         </DropdownMenuItem>
+        <CanAccess resource="sales" action="list">
+          <DropdownMenuItem asChild className="h-11 px-4 text-base">
+            <Link to="/sales" className="flex items-center gap-2">
+              <UserCog className="size-4" />
+              {translate("resources.sales.name", { smart_count: 2 })}
+            </Link>
+          </DropdownMenuItem>
+        </CanAccess>
         <DropdownMenuItem asChild className="h-11 px-4 text-base">
           <Link to="/settings" className="flex items-center gap-2">
             <Settings className="size-4" />
