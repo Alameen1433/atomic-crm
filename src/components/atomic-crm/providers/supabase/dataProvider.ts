@@ -566,6 +566,12 @@ const signFile = async (file?: Partial<RAFile>) => {
   return { ...file, src: data.signedUrl };
 };
 
+/**
+ * Adds signed URLs to a record's avatar, logo, and attachments.
+ *
+ * @param record - The record whose file references should be signed
+ * @returns The record with signed file references
+ */
 async function signRecordFiles<RecordType extends Record<string, any>>(
   record: RecordType,
 ): Promise<RecordType> {

@@ -12,6 +12,11 @@ import { TextInput } from "@/components/admin/text-input";
 
 import type { Sale } from "../types";
 
+/**
+ * Renders the sales form fields for partner identity, permissions, and commission rates.
+ *
+ * @returns The sales form content.
+ */
 export function SalesInputs() {
   const { identity } = useGetIdentity();
   const record = useRecordContext<Sale>();

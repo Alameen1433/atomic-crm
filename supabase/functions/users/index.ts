@@ -13,6 +13,12 @@ const hasValidCommissionRates = (newRate: number, recurringRate: number) =>
   Number(recurringRate) >= 0 &&
   Number(recurringRate) <= 100;
 
+/**
+ * Updates whether a sale associated with a user is disabled.
+ *
+ * @param user_id - The user's identifier
+ * @param disabled - Whether the sale should be disabled
+ */
 async function updateSaleDisabled(user_id: string, disabled: boolean) {
   return await supabaseAdmin
     .from("sales")
@@ -37,6 +43,14 @@ async function updateSaleAdministrator(
   return sales.at(0);
 }
 
+/**
+ * Creates a sale record for a user.
+ *
+ * @param user_id - The associated authentication user ID
+ * @param data - The sale's account, status, administrator, and commission-rate details
+ * @returns The created sale record
+ * @throws An error when the sale cannot be created
+ */
 async function createSale(
   user_id: string,
   data: {
@@ -62,6 +76,13 @@ async function createSale(
   return sales.at(0);
 }
 
+/**
+ * Updates the avatar associated with a sale user.
+ *
+ * @param user_id - The authenticated user's identifier
+ * @param avatar - The avatar value to store
+ * @returns The updated sale record
+ */
 async function updateSaleAvatar(user_id: string, avatar: string) {
   const { data: sales, error: salesError } = await supabaseAdmin
     .from("sales")
@@ -76,6 +97,13 @@ async function updateSaleAvatar(user_id: string, avatar: string) {
   return sales.at(0);
 }
 
+/**
+ * Invites a sales user or creates a missing sales record for an existing Auth user.
+ *
+ * @param req - The request containing the user's details and commission rates.
+ * @param currentUserSale - The current user's sales record, used to verify administrator access.
+ * @returns A response containing the created or updated sale, or an error response.
+ */
 async function inviteUser(req: Request, currentUserSale: any) {
   const {
     email,
@@ -213,6 +241,13 @@ async function inviteUser(req: Request, currentUserSale: any) {
   }
 }
 
+/**
+ * Updates a sales user's profile and, for administrators, their account status and commission rates.
+ *
+ * @param req - The request containing the target sales user ID and fields to update.
+ * @param currentUserSale - The authenticated user's sales record, used to determine authorization and record commission-rate changes.
+ * @returns A response containing the updated sale record or an error response.
+ */
 async function patchUser(req: Request, currentUserSale: any) {
   const {
     sales_id,

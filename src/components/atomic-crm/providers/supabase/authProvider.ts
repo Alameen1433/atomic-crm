@@ -36,6 +36,11 @@ function getLocalStorage(): Storage | null {
   return null;
 }
 
+/**
+ * Determines whether the CRM has been initialized.
+ *
+ * @returns `true` if the CRM is initialized, `false` otherwise.
+ */
 export async function getIsInitialized() {
   const storage = getLocalStorage();
   const cachedValue = storage?.getItem(IS_INITIALIZED_CACHE_KEY);
@@ -55,6 +60,13 @@ export async function getIsInitialized() {
   return isInitialized;
 }
 
+/**
+ * Determines whether the CRM has been initialized from its initialization state.
+ *
+ * @param data - Initialization records containing the initialized count
+ * @param error - Query error to propagate
+ * @returns `true` if the initialized count is greater than zero, `false` otherwise
+ */
 export function resolveInitializationState(
   data: Array<{ is_initialized: number | string | null }> | null,
   error: unknown,
@@ -96,6 +108,9 @@ const getSale = async () => {
   return dataSale;
 };
 
+/**
+ * Clears cached initialization, current-sale, and React Query offline data from local storage.
+ */
 function clearCache() {
   const storage = getLocalStorage();
   storage?.removeItem(IS_INITIALIZED_CACHE_KEY);

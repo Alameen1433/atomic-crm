@@ -43,6 +43,9 @@ const OptionsField = (_props: { label?: string | boolean }) => {
   );
 };
 
+/**
+ * Renders the sales list with search, export, creation, commission rate, and status controls.
+ */
 export function SalesList() {
   return (
     <List

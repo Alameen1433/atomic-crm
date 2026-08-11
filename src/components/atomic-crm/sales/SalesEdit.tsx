@@ -21,6 +21,9 @@ import type { CrmDataProvider } from "../providers/types";
 import type { Sale, SalesFormData } from "../types";
 import { SalesInputs } from "./SalesInputs";
 
+/**
+ * Renders edit actions for resetting a partner password, canceling changes, and saving the record.
+ */
 function EditToolbar() {
   return (
     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -33,6 +36,9 @@ function EditToolbar() {
   );
 }
 
+/**
+ * Renders a button and confirmation dialog for sending a partner password-reset email.
+ */
 function ResetPartnerPasswordButton() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const record = useRecordContext<Sale>();
@@ -83,6 +89,9 @@ function ResetPartnerPasswordButton() {
   );
 }
 
+/**
+ * Renders the sales edit form and handles updating the current sale.
+ */
 export function SalesEdit() {
   const { record } = useEditController();
 

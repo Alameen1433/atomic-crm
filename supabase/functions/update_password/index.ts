@@ -6,6 +6,13 @@ import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
 import { canResetPassword } from "./canResetPassword.ts";
 
+/**
+ * Initiates a password reset email for the authenticated user or an authorized target user.
+ *
+ * @param req - Request containing an optional `sales_id` identifying the target user
+ * @param user - Authenticated user whose permissions determine whether the reset is authorized
+ * @returns A JSON response indicating success or an error response when authorization or lookup fails
+ */
 async function updatePassword(req: Request, user: any) {
   const currentSale = await getUserSale(user);
   if (!currentSale) {
