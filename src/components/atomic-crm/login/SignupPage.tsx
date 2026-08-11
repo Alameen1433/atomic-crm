@@ -22,7 +22,11 @@ export const SignupPage = () => {
   const { darkModeLogo: logo, title } = useConfigurationContext();
   const navigate = useNavigate();
   const translate = useTranslate();
-  const { data: isInitialized, isPending } = useQuery({
+  const {
+    data: isInitialized,
+    isError,
+    isPending,
+  } = useQuery({
     queryKey: ["init"],
     queryFn: async () => {
       return dataProvider.isInitialized();
@@ -86,9 +90,15 @@ export const SignupPage = () => {
     return <LoginSkeleton />;
   }
 
+  // Signup is only safe after Supabase explicitly confirms an empty CRM.
+  // A failed initialization check must never expose first-admin registration.
+  if (isError) {
+    return <Navigate to="/login" replace />;
+  }
+
   // For the moment, we only allow one user to sign up. Other users must be created by the administrator.
   if (isInitialized) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
   const onSubmit: SubmitHandler<SignUpData> = async (data) => {

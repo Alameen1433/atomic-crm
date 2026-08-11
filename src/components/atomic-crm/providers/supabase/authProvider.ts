@@ -43,16 +43,30 @@ export async function getIsInitialized() {
     return cachedValue === "true";
   }
 
-  const { data } = await getSupabaseClient()
+  const { data, error } = await getSupabaseClient()
     .from("init_state")
     .select("is_initialized");
-  const isInitialized = data?.at(0)?.is_initialized > 0;
+  const isInitialized = resolveInitializationState(data, error);
 
   if (isInitialized) {
     storage?.setItem(IS_INITIALIZED_CACHE_KEY, "true");
   }
 
   return isInitialized;
+}
+
+export function resolveInitializationState(
+  data: Array<{ is_initialized: number | string | null }> | null,
+  error: unknown,
+) {
+  if (error) throw error;
+
+  const initializedCount = data?.at(0)?.is_initialized;
+  if (initializedCount == null) {
+    throw new Error("Unable to verify whether the CRM is initialized");
+  }
+
+  return Number(initializedCount) > 0;
 }
 
 const getSale = async () => {
