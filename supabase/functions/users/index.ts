@@ -4,6 +4,7 @@ import { corsHeaders, OptionsMiddleware } from "../_shared/cors.ts";
 import { createErrorResponse } from "../_shared/utils.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
+import { getAuthCallbackUrl } from "../_shared/authRedirect.ts";
 
 const hasValidCommissionRates = (newRate: unknown, recurringRate: unknown) =>
   typeof newRate === "number" &&
@@ -189,8 +190,16 @@ async function inviteUser(req: Request, currentUserSale: any) {
       console.error("Error inviting user: undefined user");
       return createErrorResponse(500, "Internal Server Error");
     }
+    let redirectTo: string;
+    try {
+      redirectTo = getAuthCallbackUrl();
+    } catch (error) {
+      console.error("Cannot send invitation:", error);
+      return createErrorResponse(500, "Invitation redirect is not configured");
+    }
+
     const { error: emailError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo });
 
     if (emailError) {
       console.error(`Error inviting user, email_error=${emailError}`);
