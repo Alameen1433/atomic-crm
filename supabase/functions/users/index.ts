@@ -47,30 +47,6 @@ async function updateSaleAdministrator(
   return sales.at(0);
 }
 
-async function createSale(
-  user_id: string,
-  data: {
-    email: string;
-    first_name: string;
-    last_name: string;
-    disabled: boolean;
-    administrator: boolean;
-    new_client_commission_rate: number;
-    recurring_client_commission_rate: number;
-  },
-) {
-  const { data: sales, error: salesError } = await supabaseAdmin
-    .from("sales")
-    .insert({ ...data, user_id })
-    .select("*");
-
-  if (!sales?.length || salesError) {
-    console.error("Error creating user:", salesError);
-    throw salesError ?? new Error("Failed to create sale");
-  }
-  return sales.at(0);
-}
-
 async function updateSaleAvatar(user_id: string, avatar: string) {
   const { data: sales, error: salesError } = await supabaseAdmin
     .from("sales")
@@ -88,7 +64,6 @@ async function updateSaleAvatar(user_id: string, avatar: string) {
 async function inviteUser(req: Request, currentUserSale: any) {
   const {
     email,
-    password,
     first_name,
     last_name,
     disabled,
@@ -112,99 +87,33 @@ async function inviteUser(req: Request, currentUserSale: any) {
     );
   }
 
-  const { data, error: userError } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    user_metadata: { first_name, last_name },
-  });
+  let redirectTo: string;
+  try {
+    redirectTo = getAuthCallbackUrl();
+  } catch (error) {
+    console.error("Cannot send invitation:", error);
+    return createErrorResponse(500, "Invitation redirect is not configured");
+  }
 
-  let user = data?.user;
-
-  if (!user && userError?.code === "email_exists") {
-    // This may happen if users cleared their database but not the users
-    // We have to create the sale directly
-    const { data, error } = await supabaseAdmin.rpc("get_user_id_by_email", {
-      email,
+  // inviteUserByEmail creates the unconfirmed Auth user and sends an invite
+  // whose callback type is `invite`. Creating a password user first turns this
+  // into an existing-user flow and bypasses the CRM's set-password route.
+  const { data, error: userError } =
+    await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      data: { first_name, last_name },
+      redirectTo,
     });
 
-    if (!data || error) {
-      console.error(
-        `Error inviting user: error=${error ?? "could not fetch users for email"}`,
-      );
-      return createErrorResponse(500, "Internal Server Error");
-    }
-
-    user = data[0];
-    try {
-      const { data: existingSale, error: salesError } = await supabaseAdmin
-        .from("sales")
-        .select("*")
-        .eq("user_id", user.id);
-      if (salesError) {
-        return createErrorResponse(salesError.status, salesError.message, {
-          code: salesError.code,
-        });
-      }
-      if (existingSale.length > 0) {
-        return createErrorResponse(
-          400,
-          "A sales for this email already exists",
-        );
-      }
-
-      const sale = await createSale(user.id, {
-        email,
-        first_name,
-        last_name,
-        disabled,
-        administrator,
-        new_client_commission_rate,
-        recurring_client_commission_rate,
-      });
-
-      return new Response(
-        JSON.stringify({
-          data: sale,
-        }),
-        {
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        },
-      );
-    } catch (error) {
-      return createErrorResponse(
-        (error as any).status ?? 500,
-        (error as Error).message,
-        {
-          code: (error as any).code,
-        },
-      );
-    }
-  } else {
-    if (userError) {
-      console.error(`Error inviting user: user_error=${userError}`);
-      return createErrorResponse(userError.status, userError.message, {
-        code: userError.code,
-      });
-    }
-    if (!data?.user) {
-      console.error("Error inviting user: undefined user");
-      return createErrorResponse(500, "Internal Server Error");
-    }
-    let redirectTo: string;
-    try {
-      redirectTo = getAuthCallbackUrl();
-    } catch (error) {
-      console.error("Cannot send invitation:", error);
-      return createErrorResponse(500, "Invitation redirect is not configured");
-    }
-
-    const { error: emailError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo });
-
-    if (emailError) {
-      console.error(`Error inviting user, email_error=${emailError}`);
-      return createErrorResponse(500, "Failed to send invitation mail");
-    }
+  const user = data?.user;
+  if (userError) {
+    console.error(`Error inviting user: user_error=${userError}`);
+    return createErrorResponse(userError.status ?? 400, userError.message, {
+      code: userError.code,
+    });
+  }
+  if (!user) {
+    console.error("Error inviting user: undefined user");
+    return createErrorResponse(500, "Internal Server Error");
   }
 
   try {
