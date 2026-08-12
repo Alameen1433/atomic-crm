@@ -118,23 +118,41 @@
         </div>
     </body>
     <script>
-        const getUrlParams = () => {
-            const urlSearchParams = new URLSearchParams(
+        function interceptAuthCallback() {
+            const authParams = new URLSearchParams(
                 window.location.hash.substring(1)
             );
-            const access_token = urlSearchParams.get('access_token');
-            const refresh_token = urlSearchParams.get('refresh_token');
-            const type = urlSearchParams.get('type');
+            const accessToken = authParams.get('access_token');
+            const refreshToken = authParams.get('refresh_token');
+            const type = authParams.get('type');
+            const errorCode = authParams.get('error_code');
 
-            return { access_token, refresh_token, type };
-        };
+            if (
+                (type === 'invite' || type === 'recovery') &&
+                accessToken &&
+                refreshToken
+            ) {
+                const setPasswordParams = new URLSearchParams({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    type,
+                });
+                window.location.replace(
+                    `./#/set-password?${setPasswordParams.toString()}`
+                );
+                return;
+            }
 
-        function interceptAuthCallback() {
-                const hash = window.location.hash;
-                const {access_token, refresh_token, type} = getUrlParams();
-                window.location.href = `./#/auth-callback?access_token=${access_token}&refresh_token=${refresh_token}&type=${type}`;
+            if (errorCode) {
+                window.location.replace(
+                    `./#/login?auth_error=${encodeURIComponent(errorCode)}`
+                );
+                return;
+            }
+
+            window.location.replace('./#/login');
         }
-    
+
         // Call the function to intercept the auth callback
         interceptAuthCallback();
     </script>

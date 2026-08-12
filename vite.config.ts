@@ -32,6 +32,11 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
+        // Auth returns invite/recovery tokens in the URL fragment. These
+        // navigations must load the static token bridge instead of the SPA
+        // fallback, otherwise the app sees an unauthenticated user and opens
+        // the sign-in page.
+        navigateFallbackDenylist: [/^\/auth-callback(?:\.html)?\/?$/],
       },
       manifest: false, // Use existing manifest.json from public/
     }),
