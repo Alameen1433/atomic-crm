@@ -159,7 +159,10 @@ export const CRM = ({
   // Seed the store with CRM prop values if not already stored
   // (backwards compatibility for prop-based config)
   useEffect(() => {
-    if (!store.getItem(CONFIGURATION_STORE_KEY)) {
+    const storedConfiguration = store.getItem<ConfigurationContextValue>(
+      CONFIGURATION_STORE_KEY,
+    );
+    if (!storedConfiguration) {
       store.setItem(CONFIGURATION_STORE_KEY, {
         companySectors,
         currency,
@@ -172,6 +175,16 @@ export const CRM = ({
         darkModeLogo,
         lightModeLogo,
       } satisfies ConfigurationContextValue);
+    } else if (
+      storedConfiguration.title === "Atomic CRM" &&
+      title !== storedConfiguration.title
+    ) {
+      // Migrate the legacy product name cached before authentication. The
+      // database-backed configuration will still take precedence after login.
+      store.setItem(CONFIGURATION_STORE_KEY, {
+        ...storedConfiguration,
+        title,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store]);

@@ -36,7 +36,10 @@ export default defineConfig({
         // navigations must load the static token bridge instead of the SPA
         // fallback, otherwise the app sees an unauthenticated user and opens
         // the sign-in page.
-        navigateFallbackDenylist: [/^\/auth-callback(?:\.html)?\/?$/],
+        navigateFallbackDenylist: [
+          /^\/auth-callback(?:\.html)?\/?$/,
+          /^\/auth-confirm(?:\.html)?\/?$/,
+        ],
       },
       manifest: false, // Use existing manifest.json from public/
     }),
@@ -67,6 +70,12 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        "auth-confirm": path.resolve(__dirname, "auth-confirm.html"),
+      },
+    },
   },
   resolve: {
     preserveSymlinks: true,

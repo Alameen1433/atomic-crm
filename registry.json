@@ -898,6 +898,14 @@
           "type": "registry:lib"
         },
         {
+          "path": "src/lib/authConfirmation.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "src/lib/authConfirmation.test.ts",
+          "type": "registry:lib"
+        },
+        {
           "path": "CHANGELOG.md",
           "type": "registry:file",
           "target": "~/CHANGELOG.md"

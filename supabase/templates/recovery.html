@@ -60,8 +60,10 @@
         </p>
         <p>You can reset your password by clicking the button below.</p>
         <p>
-          <a href="{{ .ConfirmationURL }}" class="button"
-            >Reset your password</a
+          <a
+            href="{{ .SiteURL }}/auth-confirm.html?token_hash={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo }}"
+            class="button"
+            >Review password reset</a
           >
         </p>
         <p>

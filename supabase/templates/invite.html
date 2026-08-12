@@ -58,7 +58,11 @@
           choose your password, please click the link below.
         </p>
         <p>
-          <a href="{{ .ConfirmationURL }}" class="button">Create my account</a>
+          <a
+            href="{{ .SiteURL }}/auth-confirm.html?token_hash={{ .TokenHash }}&type=invite&redirect_to={{ .RedirectTo }}"
+            class="button"
+            >Review invitation</a
+          >
         </p>
         <p>See you soon!</p>
         <p>Team Xenora</p>

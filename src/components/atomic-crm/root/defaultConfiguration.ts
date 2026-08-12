@@ -10,7 +10,7 @@ export const defaultLightModeLogo = lightModeLogo;
 
 export const defaultCurrency = "INR";
 
-export const defaultTitle = "Atomic CRM";
+export const defaultTitle = "Xenora CRM";
 
 export const defaultCompanySectors = [
   { value: "communication-services", label: "Communication Services" },
