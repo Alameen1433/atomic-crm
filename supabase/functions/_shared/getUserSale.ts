@@ -1,4 +1,4 @@
-import { type User } from "jsr:@supabase/supabase-js@2";
+import { type User } from "jsr:@supabase/supabase-js@2.90.1";
 import { supabaseAdmin } from "./supabaseAdmin.ts";
 
 /**

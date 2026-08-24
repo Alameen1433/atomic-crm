@@ -1,6 +1,6 @@
 // Based on https://github.com/supabase/supabase/blob/master/examples/edge-functions/supabase/functions/_shared/jwt/default.ts
 import * as jose from "jsr:@panva/jose@6";
-import { createClient, type User } from "jsr:@supabase/supabase-js@2";
+import { createClient, type User } from "jsr:@supabase/supabase-js@2.90.1";
 import { createErrorResponse } from "./utils.ts";
 
 const SUPABASE_JWT_ISSUER =
