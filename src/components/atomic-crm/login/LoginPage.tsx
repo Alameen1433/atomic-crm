@@ -7,6 +7,7 @@ import { TextInput } from "@/components/admin/text-input";
 import { Notification } from "@/components/admin/notification";
 import { useConfigurationContext } from "@/components/atomic-crm/root/ConfigurationContext.tsx";
 import { SSOAuthButton } from "./SSOAuthButton";
+import { getLegacyAuthErrorMessage } from "@/lib/authConfirmation";
 import {
   disableEmailPasswordAuthentication,
   googleWorkplaceDomain,
@@ -25,7 +26,7 @@ export const LoginPage = (props: { redirectTo?: string }) => {
   const { darkModeLogo, title } = useConfigurationContext();
   const { redirectTo } = props;
   const [loading, setLoading] = useState(false);
-  const hasDisplayedRecoveryNotification = useRef(false);
+  const hasDisplayedAuthNotification = useRef(false);
   const location = useLocation();
   const navigate = useNavigate();
   const login = useLogin();
@@ -34,21 +35,37 @@ export const LoginPage = (props: { redirectTo?: string }) => {
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
-    const shouldNotify = searchParams.get("passwordRecoveryEmailSent") === "1";
+    const recoveryEmailSent =
+      searchParams.get("passwordRecoveryEmailSent") === "1";
+    const passwordUpdated = searchParams.get("passwordUpdated") === "1";
+    const authError = searchParams.get("auth_error");
 
-    if (!shouldNotify || hasDisplayedRecoveryNotification.current) {
+    if (
+      (!recoveryEmailSent && !passwordUpdated && !authError) ||
+      hasDisplayedAuthNotification.current
+    ) {
       return;
     }
 
-    hasDisplayedRecoveryNotification.current = true;
-    notify("crm.auth.recovery_email_sent", {
-      type: "success",
-      messageArgs: {
-        _: "If you're a registered user, you should receive a password recovery email shortly.",
-      },
-    });
+    hasDisplayedAuthNotification.current = true;
+    if (passwordUpdated) {
+      notify("Password updated. Sign in with your new password.", {
+        type: "success",
+      });
+    } else if (recoveryEmailSent) {
+      notify("crm.auth.recovery_email_sent", {
+        type: "success",
+        messageArgs: {
+          _: "If you're a registered user, you should receive a password recovery email shortly.",
+        },
+      });
+    } else {
+      notify(getLegacyAuthErrorMessage(authError), { type: "error" });
+    }
 
     searchParams.delete("passwordRecoveryEmailSent");
+    searchParams.delete("passwordUpdated");
+    searchParams.delete("auth_error");
     const nextSearch = searchParams.toString();
     navigate(
       {

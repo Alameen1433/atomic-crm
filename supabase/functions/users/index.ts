@@ -4,7 +4,6 @@ import { corsHeaders, OptionsMiddleware } from "../_shared/cors.ts";
 import { createErrorResponse } from "../_shared/utils.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
-import { getAuthCallbackUrl } from "../_shared/authRedirect.ts";
 
 const hasValidCommissionRates = (newRate: unknown, recurringRate: unknown) =>
   typeof newRate === "number" &&
@@ -87,21 +86,12 @@ async function inviteUser(req: Request, currentUserSale: any) {
     );
   }
 
-  let redirectTo: string;
-  try {
-    redirectTo = getAuthCallbackUrl();
-  } catch (error) {
-    console.error("Cannot send invitation:", error);
-    return createErrorResponse(500, "Invitation redirect is not configured");
-  }
-
   // inviteUserByEmail creates the unconfirmed Auth user and sends an invite
   // whose callback type is `invite`. Creating a password user first turns this
   // into an existing-user flow and bypasses the CRM's set-password route.
   const { data, error: userError } =
     await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { first_name, last_name },
-      redirectTo,
     });
 
   const user = data?.user;

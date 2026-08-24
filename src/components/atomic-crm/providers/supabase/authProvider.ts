@@ -104,7 +104,7 @@ const getSale = async () => {
   return dataSale;
 };
 
-function clearCache() {
+export function clearAuthCache() {
   const storage = getLocalStorage();
   storage?.removeItem(IS_INITIALIZED_CACHE_KEY);
   storage?.removeItem(CURRENT_SALE_CACHE_KEY);
@@ -128,7 +128,7 @@ export const getAuthProvider = (): AuthProvider => {
       return baseAuthProvider.login(params);
     },
     logout: async (params) => {
-      clearCache();
+      clearAuthCache();
       return baseAuthProvider.logout(params);
     },
     checkAuth: async (params) => {
@@ -167,7 +167,7 @@ export const getAuthProvider = (): AuthProvider => {
       await baseAuthProvider.checkAuth(params);
       const sale = await getSale();
       if (sale == null) {
-        clearCache();
+        clearAuthCache();
         await getSupabaseClient().auth.signOut();
         throw {
           redirectTo: "/login",

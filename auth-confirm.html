@@ -53,22 +53,34 @@
         color: #52525b;
         line-height: 1.6;
       }
-      a {
+      button {
         display: block;
+        width: 100%;
+        border: 0;
         margin-top: 28px;
         padding: 12px 18px;
         border-radius: 9px;
         background: #18181b;
         color: #fff;
         font-weight: 600;
-        text-decoration: none;
+        cursor: pointer;
       }
-      a:hover {
+      button:hover:not(:disabled) {
         background: #27272a;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.7;
       }
       .error {
         margin-top: 20px;
         color: #b91c1c;
+      }
+      .recovery-link {
+        display: inline-block;
+        margin-top: 16px;
+        color: #18181b;
+        font-weight: 600;
       }
     </style>
   </head>
@@ -79,11 +91,19 @@
       <p data-confirm-description>
         Review this request, then continue to Xenora CRM.
       </p>
-      <a data-confirm-button hidden>Continue</a>
+      <button type="button" data-confirm-button hidden>Continue</button>
       <p class="error" data-confirm-error hidden>
         This link is incomplete or invalid. Request a new email from your CRM
         administrator.
       </p>
+      <a
+        class="recovery-link"
+        data-confirm-recovery-link
+        href="./#/forgot-password"
+        hidden
+      >
+        Request a new password-reset email
+      </a>
     </main>
     <script type="module" src="/src/auth-confirm.ts"></script>
   </body>

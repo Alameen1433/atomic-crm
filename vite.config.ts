@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vite";
-import { VitePWA } from "vite-plugin-pwa";
 import createHtmlPlugin from "vite-plugin-simple-html";
 
 // https://vitejs.dev/config/
@@ -26,22 +25,6 @@ export default defineConfig({
           mainScript: `src/main.tsx`,
         },
       },
-    }),
-    VitePWA({
-      registerType: "autoUpdate",
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
-        // Auth returns invite/recovery tokens in the URL fragment. These
-        // navigations must load the static token bridge instead of the SPA
-        // fallback, otherwise the app sees an unauthenticated user and opens
-        // the sign-in page.
-        navigateFallbackDenylist: [
-          /^\/auth-callback(?:\.html)?\/?$/,
-          /^\/auth-confirm(?:\.html)?\/?$/,
-        ],
-      },
-      manifest: false, // Use existing manifest.json from public/
     }),
   ],
   define:
@@ -74,6 +57,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, "index.html"),
         "auth-confirm": path.resolve(__dirname, "auth-confirm.html"),
+        "auth-callback": path.resolve(__dirname, "auth-callback.html"),
       },
     },
   },

@@ -6,7 +6,6 @@ import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
 import { canResetPassword } from "./canResetPassword.ts";
-import { getAuthCallbackUrl } from "../_shared/authRedirect.ts";
 
 async function updatePassword(req: Request, user: User) {
   const currentSale = await getUserSale(user);
@@ -45,20 +44,8 @@ async function updatePassword(req: Request, user: User) {
     );
   }
 
-  let redirectTo: string;
-  try {
-    redirectTo = getAuthCallbackUrl();
-  } catch (error) {
-    console.error("Cannot send password reset:", error);
-    return createErrorResponse(
-      500,
-      "Password reset redirect is not configured",
-    );
-  }
-
   const { data, error } = await supabaseAdmin.auth.resetPasswordForEmail(
     targetSale.email,
-    { redirectTo },
   );
 
   if (!data || error) {

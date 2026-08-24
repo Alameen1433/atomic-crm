@@ -1,26 +1,61 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Form, required, useNotify, useTranslate } from "ra-core";
-import { useSetPassword, useSupabaseAccessToken } from "ra-supabase-core";
+import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/admin/text-input";
 import { Layout } from "@/components/supabase/layout";
+import { clearAuthCache } from "@/components/atomic-crm/providers/supabase/authProvider";
+import { getSupabaseClient } from "@/components/atomic-crm/providers/supabase/supabase";
+import {
+  clearPasswordFlowMarker,
+  parsePasswordFlowMarker,
+  PASSWORD_FLOW_STORAGE_KEY,
+  type PasswordFlowMarker,
+} from "@/lib/passwordFlow";
 
 interface SetPasswordFormData {
   password: string;
   confirmPassword: string;
 }
 
+type PageState =
+  | { status: "loading" }
+  | { status: "invalid" }
+  | { status: "ready"; marker: PasswordFlowMarker };
+
 export const SetPasswordPage = () => {
   const [loading, setLoading] = useState(false);
-
-  const access_token = useSupabaseAccessToken();
-  const refresh_token = useSupabaseAccessToken({
-    parameterName: "refresh_token",
-  });
-
+  const [pageState, setPageState] = useState<PageState>({ status: "loading" });
+  const location = useLocation();
   const notify = useNotify();
   const translate = useTranslate();
-  const [, { mutateAsync: setPassword }] = useSetPassword();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPasswordFlow = async () => {
+      const { data, error } = await getSupabaseClient().auth.getSession();
+      const marker = parsePasswordFlowMarker(
+        window.sessionStorage.getItem(PASSWORD_FLOW_STORAGE_KEY),
+        data.session?.user.id ?? null,
+      );
+      const requestedFlow = new URLSearchParams(location.search).get("flow");
+
+      if (cancelled) return;
+      if (error || !marker || requestedFlow !== marker.type) {
+        clearPasswordFlowMarker(window.sessionStorage);
+        setPageState({ status: "invalid" });
+        return;
+      }
+
+      setPageState({ status: "ready", marker });
+    };
+
+    void loadPasswordFlow();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.search]);
 
   const validate = (values: SetPasswordFormData) => {
     if (values.password !== values.confirmPassword) {
@@ -32,25 +67,32 @@ export const SetPasswordPage = () => {
     return {};
   };
 
-  if (!access_token || !refresh_token) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("Missing access_token or refresh_token for set password");
-    }
-    return (
-      <Layout>
-        <p>{translate("ra-supabase.auth.missing_tokens")}</p>
-      </Layout>
-    );
-  }
-
   const submit = async (values: SetPasswordFormData) => {
     try {
       setLoading(true);
-      await setPassword({
-        access_token,
-        refresh_token,
+      const { error } = await getSupabaseClient().auth.updateUser({
         password: values.password,
       });
+      if (error) throw error;
+
+      clearPasswordFlowMarker(window.sessionStorage);
+      clearAuthCache();
+      try {
+        const { error: signOutError } = await getSupabaseClient().auth.signOut({
+          scope: "global",
+        });
+        if (signOutError) {
+          await getSupabaseClient().auth.signOut({ scope: "local" });
+        }
+      } catch {
+        try {
+          await getSupabaseClient().auth.signOut({ scope: "local" });
+        } catch {
+          // The password is already updated. Continue to the clean sign-in
+          // screen even if Supabase could not revoke the temporary session.
+        }
+      }
+      window.location.replace("./#/login?passwordUpdated=1");
     } catch (error: any) {
       notify(
         typeof error === "string"
@@ -75,14 +117,46 @@ export const SetPasswordPage = () => {
     }
   };
 
+  if (pageState.status === "loading") {
+    return (
+      <Layout>
+        <p>Verifying your secure password session…</p>
+      </Layout>
+    );
+  }
+
+  if (pageState.status === "invalid") {
+    return (
+      <Layout>
+        <div className="space-y-4 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Password link unavailable
+          </h1>
+          <p>
+            This password session is missing or has expired. Request a fresh
+            email and open its link again.
+          </p>
+          <Button asChild>
+            <a href="./#/forgot-password">Request a new reset link</a>
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="flex flex-col space-y-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {translate("ra-supabase.set_password.new_password", {
-            _: "Choose your password",
-          })}
+          {pageState.marker.type === "invite"
+            ? "Create your password"
+            : translate("ra-supabase.set_password.new_password", {
+                _: "Choose your new password",
+              })}
         </h1>
+        <p className="text-sm text-muted-foreground">
+          After saving, sign in once with your new password.
+        </p>
       </div>
       <Form
         className="space-y-8"
@@ -102,12 +176,13 @@ export const SetPasswordPage = () => {
           label={translate("crm.auth.confirm_password", {
             _: "Confirm password",
           })}
+          autoComplete="new-password"
           source="confirmPassword"
           type="password"
           validate={required()}
         />
         <Button type="submit" className="cursor-pointer" disabled={loading}>
-          {translate("ra.action.save")}
+          {loading ? "Saving…" : translate("ra.action.save")}
         </Button>
       </Form>
     </Layout>

@@ -898,6 +898,14 @@
           "type": "registry:lib"
         },
         {
+          "path": "src/lib/passwordFlow.ts",
+          "type": "registry:lib"
+        },
+        {
+          "path": "src/lib/passwordFlow.test.ts",
+          "type": "registry:lib"
+        },
+        {
           "path": "src/lib/authConfirmation.ts",
           "type": "registry:lib"
         },
