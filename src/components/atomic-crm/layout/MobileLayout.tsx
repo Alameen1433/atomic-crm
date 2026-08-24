@@ -10,14 +10,14 @@ import { MobileNavigation } from "./MobileNavigation";
 export const MobileLayout = ({ children }: { children: ReactNode }) => {
   useConfigurationLoader();
   return (
-    <>
+    <div className="min-h-dvh bg-muted/20 overscroll-y-contain">
       <ErrorBoundary FallbackComponent={Error}>
         <Suspense fallback={<Skeleton className="h-12 w-12 rounded-full" />}>
           {children}
         </Suspense>
       </ErrorBoundary>
       <MobileNavigation />
-      <Notification mobileOffset={{ bottom: "72px" }} />
-    </>
+      <Notification mobileOffset={{ bottom: "88px" }} />
+    </div>
   );
 };

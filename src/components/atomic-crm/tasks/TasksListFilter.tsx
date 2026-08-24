@@ -33,9 +33,9 @@ export const TaskListFilter = ({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+      <h2 className="mb-1 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
-      </p>
+      </h2>
       <ResourceContextProvider value="tasks">
         <ListContextProvider value={listContext}>
           <TasksIterator showContact={showContact} />
@@ -49,7 +49,7 @@ export const TaskListFilter = ({
               listContext.setPerPage(listContext.perPage + 10);
               e.preventDefault();
             }}
-            className="text-sm underline hover:no-underline"
+            className="inline-flex min-h-11 items-center px-4 text-sm font-medium underline underline-offset-4 hover:no-underline"
           >
             {translate("crm.common.load_more")}
           </a>

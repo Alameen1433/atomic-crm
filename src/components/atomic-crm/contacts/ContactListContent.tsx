@@ -15,7 +15,7 @@ import { TextField } from "@/components/admin/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
+import { ChevronRight, RotateCcw } from "lucide-react";
 
 import { Status } from "../misc/Status";
 import { formatRelativeDate } from "../misc/RelativeDate";
@@ -194,7 +194,7 @@ export const ContactListContentMobile = () => {
         {[...Array(5)].map((_, index) => (
           <div
             key={index}
-            className="flex flex-row items-center py-2 hover:bg-muted transition-colors first:rounded-t-xl last:rounded-b-xl"
+            className="flex min-h-18 flex-row items-center rounded-xl border bg-card px-3 py-3 shadow-xs"
           >
             <div className="flex flex-row gap-4 items-center mr-4">
               <Skeleton className="w-10 h-10 rounded-full" />
@@ -230,7 +230,7 @@ export const ContactListContentMobile = () => {
   }
 
   return (
-    <div className="md:divide-y">
+    <div className="space-y-2 min-[700px]:grid min-[700px]:grid-cols-2 min-[700px]:gap-2 min-[700px]:space-y-0">
       {contacts.map((contact) => (
         <RecordContextProvider key={contact.id} value={contact}>
           <ContactItemContentMobile contact={contact} />
@@ -252,20 +252,20 @@ const ContactItemContentMobile = ({ contact }: { contact: Contact }) => {
   return (
     <Link
       to={`/contacts/${contact.id}/show`}
-      className="flex flex-row gap-4 items-center py-2 hover:bg-muted transition-colors"
+      className="flex min-h-18 flex-row items-center gap-3 rounded-xl border bg-card px-3 py-3 shadow-xs transition-colors active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Avatar />
-      <div className="flex flex-col grow justify-between">
+      <div className="flex min-w-0 grow flex-col justify-between">
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between">
-            <div className="font-medium">
+          <div className="flex items-center justify-between gap-2">
+            <div className="truncate font-semibold">
               <RecordRepresentation />
             </div>
             <Status status={contact.status} />
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="mt-0.5 text-sm leading-snug text-muted-foreground">
             <div className="flex flex-col gap-1">
-              <span>
+              <span className="line-clamp-2">
                 {contact.title && contact.company_id != null
                   ? `${translate("resources.contacts.position_at", {
                       title: contact.title,
@@ -292,6 +292,10 @@ const ContactItemContentMobile = ({ contact }: { contact: Contact }) => {
           </div>
         </div>
       </div>
+      <ChevronRight
+        className="size-4 shrink-0 text-muted-foreground/70"
+        aria-hidden="true"
+      />
     </Link>
   );
 };

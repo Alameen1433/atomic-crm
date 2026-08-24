@@ -81,7 +81,7 @@ const ChangePasswordButton = () => {
   return (
     <Button
       variant="outline"
-      className="w-full text-base h-auto"
+      className="min-h-12 w-full text-base"
       onClick={() => updatePassword()}
     >
       <KeyRound className="size-5 mr-3" />
@@ -118,7 +118,7 @@ export const SettingsPageMobile = () => {
             <ChangePasswordButton />
             <Button
               variant="destructive"
-              className="w-full text-base h-auto"
+              className="min-h-12 w-full text-base"
               onClick={() => logout()}
             >
               <LogOut className="size-5 mr-3" />
@@ -223,7 +223,7 @@ const ProfileSection = () => {
       </SectionLabel>
       <ItemGroup className="rounded-lg border overflow-hidden">
         <Form record={data}>
-          <Item size="sm">
+          <Item size="sm" className="min-h-12">
             <ItemContent>
               <ImageEditorField
                 source="avatar"
@@ -315,7 +315,7 @@ const InlineEditRow = ({
 
   if (isEditing) {
     return (
-      <Item size="sm">
+      <Item size="sm" className="min-h-12">
         <ItemContent>
           <ItemTitle className="font-normal text-muted-foreground">
             {label}
@@ -338,8 +338,16 @@ const InlineEditRow = ({
   return (
     <Item
       size="sm"
-      className="cursor-pointer"
+      className="min-h-12 cursor-pointer"
       onClick={() => setIsEditing(true)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setIsEditing(true);
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       <ItemContent>
         <ItemTitle className="font-normal text-muted-foreground">
@@ -378,7 +386,7 @@ const LanguageRow = () => {
   if (locales.length <= 1) return null;
 
   return (
-    <Item size="sm">
+    <Item size="sm" className="min-h-12">
       <ItemContent>
         <ItemTitle className="font-normal text-muted-foreground">
           {translate("crm.language")}
@@ -388,7 +396,7 @@ const LanguageRow = () => {
         <Select value={locale} onValueChange={setLocale}>
           <SelectTrigger
             size="sm"
-            className="w-auto !h-auto py-0 border-none shadow-none"
+            className="min-h-11 w-auto border-none py-0 shadow-none"
           >
             <SelectValue />
           </SelectTrigger>
@@ -427,7 +435,7 @@ const ThemeRow = () => {
         <ToggleGroupItem
           value="system"
           aria-label={translate("crm.theme.system")}
-          className="flex-1 gap-2"
+          className="min-h-11 flex-1 gap-2"
         >
           <Smartphone className="size-4" />
           {translate("crm.theme.system")}
@@ -435,7 +443,7 @@ const ThemeRow = () => {
         <ToggleGroupItem
           value="light"
           aria-label={translate("crm.theme.light")}
-          className="flex-1 gap-2"
+          className="min-h-11 flex-1 gap-2"
         >
           <Sun className="size-4" />
           {translate("crm.theme.light")}
@@ -443,7 +451,7 @@ const ThemeRow = () => {
         <ToggleGroupItem
           value="dark"
           aria-label={translate("crm.theme.dark")}
-          className="flex-1 gap-2"
+          className="min-h-11 flex-1 gap-2"
         >
           <Moon className="size-4" />
           {translate("crm.theme.dark")}
@@ -503,7 +511,7 @@ const AboutSection = () => {
     <div>
       <SectionLabel>{translate("crm.settings.about")}</SectionLabel>
       <ItemGroup className="rounded-lg border overflow-hidden">
-        <Item asChild size="sm" className="cursor-pointer">
+        <Item asChild size="sm" className="min-h-12 cursor-pointer">
           <Link to={ChangelogPage.path}>
             <ItemContent>
               <ItemTitle className="font-normal">
@@ -537,8 +545,16 @@ const CopyPasteRow = ({ value }: { value: string }) => {
         <TooltipTrigger asChild>
           <Item
             size="sm"
-            className="cursor-pointer flex-nowrap"
+            className="min-h-12 cursor-pointer flex-nowrap"
             onClick={handleCopy}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleCopy();
+              }
+            }}
+            role="button"
+            tabIndex={0}
           >
             <ItemContent className="overflow-hidden">
               <ItemTitle className="font-normal truncate">{value}</ItemTitle>

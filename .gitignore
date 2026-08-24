@@ -57,4 +57,5 @@ node_modules/
 /playwright/.auth/
 
 *.lock
- 
+.agents/
+skills-lock.json

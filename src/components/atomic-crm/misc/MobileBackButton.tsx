@@ -20,13 +20,13 @@ export const MobileBackButton = (props: { resource?: string; to?: string }) => {
       type="button"
       variant="ghost"
       size="icon"
-      className="rounded-full size-5 pr-2"
+      className="size-11 shrink-0 rounded-full"
       onClick={(e) => {
         e.preventDefault();
         navigate(finalTo);
       }}
     >
-      <ChevronLeft className="size-6" />
+      <ChevronLeft className="size-6" aria-hidden="true" />
       <span className="sr-only">Back{to ? "" : " to list"}</span>
     </Button>
   );

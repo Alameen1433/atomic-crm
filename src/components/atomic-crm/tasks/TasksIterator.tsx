@@ -17,7 +17,9 @@ export const TasksIterator = ({
   const tasks = data.filter((task) => !isDone(task) || isRecentlyDone(task));
 
   return (
-    <div className={`space-y-4 md:space-y-2 ${className || ""}`}>
+    <div
+      className={`space-y-2 min-[700px]:grid min-[700px]:grid-cols-2 min-[700px]:gap-2 min-[700px]:space-y-0 ${className || ""}`}
+    >
       {tasks.map((task) => (
         <Task task={task} showContact={showContact} key={task.id} />
       ))}

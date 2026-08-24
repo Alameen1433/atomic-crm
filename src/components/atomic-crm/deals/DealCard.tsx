@@ -55,13 +55,12 @@ export const DealCardContent = ({
     <div
       className="cursor-pointer"
       {...provided?.draggableProps}
-      {...provided?.dragHandleProps}
       ref={provided?.innerRef}
       onClick={handleClick}
     >
       <RecordContextProvider value={deal}>
         <Card
-          className={`rounded-lg py-0 transition-all duration-200 ${
+          className={`rounded-lg py-0 transition-all duration-200 motion-reduce:transition-none ${
             snapshot?.isDragging
               ? "rotate-1 border-primary/40 opacity-95 shadow-xl"
               : "shadow-xs hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
@@ -88,7 +87,18 @@ export const DealCardContent = ({
               >
                 <CompanyAvatar width={20} height={20} />
               </ReferenceField>
-              <GripVertical className="mt-0.5 size-4 shrink-0 text-muted-foreground/60" />
+              {provided?.dragHandleProps ? (
+                <button
+                  type="button"
+                  aria-label={`Drag ${deal.name}`}
+                  className="-my-2 -mr-2 flex size-11 shrink-0 touch-none items-center justify-center rounded-lg text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  style={{ touchAction: "none" }}
+                  {...provided.dragHandleProps}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <GripVertical className="size-4" />
+                </button>
+              ) : null}
             </div>
 
             <div className="flex items-end justify-between gap-2">
