@@ -488,6 +488,9 @@ CREATE OR REPLACE FUNCTION "public"."protect_deal_commission_fields"() RETURNS "
     SET "search_path" TO ''
     AS $$
 begin
+  if current_setting('app.user_deletion_transfer', true) = 'on' then
+    return new;
+  end if;
   if not public.is_admin() then
     new.sales_id := old.sales_id;
     new.new_commission_rate_snapshot := old.new_commission_rate_snapshot;
@@ -928,6 +931,9 @@ CREATE OR REPLACE FUNCTION "public"."validate_deal_contacts_owner"() RETURNS "tr
     SET "search_path" TO ''
     AS $$
 begin
+  if current_setting('app.user_deletion_transfer', true) = 'on' then
+    return new;
+  end if;
   if new.contact_ids is not null and exists (
     select 1
     from unnest(new.contact_ids) contact_id
@@ -995,6 +1001,302 @@ begin
     previous_record.new_client_commission_rate, p_new_new_rate,
     previous_record.recurring_client_commission_rate, p_new_recurring_rate
   );
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."sync_sales_identity"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+begin
+  if tg_op = 'DELETE' then
+    update public.sales_identities
+      set deleted_at = coalesce(deleted_at, now())
+      where id = old.id;
+    return old;
+  end if;
+
+  insert into public.sales_identities (id, first_name, last_name, email, deleted_at)
+  values (new.id, new.first_name, new.last_name, new.email, null)
+  on conflict (id) do update set
+    first_name = excluded.first_name,
+    last_name = excluded.last_name,
+    email = excluded.email,
+    deleted_at = null;
+  return new;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."ensure_attachment_namespace"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+begin
+  insert into public.attachment_namespaces (namespace_sales_id, current_owner_sales_id)
+  values (new.id, new.id)
+  on conflict (namespace_sales_id) do nothing;
+  return new;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."set_created_by_sales_id"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  if new.created_by_sales_id is null then
+    new.created_by_sales_id := coalesce(public.current_sales_id(), new.sales_id);
+  end if;
+  if new.created_by_sales_id is null then
+    raise exception 'Unable to resolve record creator';
+  end if;
+  return new;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."guard_auth_user_deletion"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+declare
+  source_sale public.sales%rowtype;
+begin
+  select * into source_sale from public.sales where user_id = old.id;
+  if source_sale.id is null then
+    return old;
+  end if;
+
+  if source_sale.deletion_pending_at is not null then
+    return old;
+  end if;
+
+  if source_sale.administrator then
+    raise exception 'Administrators must be deleted through Xenora CRM';
+  end if;
+
+  if exists (select 1 from public.companies where sales_id = source_sale.id)
+    or exists (select 1 from public.contacts where sales_id = source_sale.id)
+    or exists (select 1 from public.contact_notes where sales_id = source_sale.id)
+    or exists (select 1 from public.deals where sales_id = source_sale.id)
+    or exists (select 1 from public.deal_notes where sales_id = source_sale.id)
+    or exists (select 1 from public.tasks where sales_id = source_sale.id)
+    or exists (
+      select 1 from storage.objects o
+      where o.owner = old.id
+        or o.owner_id = old.id::text
+        or (
+          o.bucket_id = 'attachments'
+          and (storage.foldername(o.name))[1] = source_sale.id::text
+        )
+    ) then
+    raise exception 'This user owns CRM data. Delete them through Xenora CRM to transfer it safely';
+  end if;
+
+  return old;
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."prepare_sales_user_deletion"(
+    "p_source_sales_id" bigint,
+    "p_replacement_sales_id" bigint,
+    "p_actor_sales_id" bigint,
+    "p_confirmation_email" text
+) RETURNS jsonb
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+declare
+  actor_record public.sales%rowtype;
+  source_record public.sales%rowtype;
+  replacement_record public.sales%rowtype;
+  active_admin_count integer;
+  event_id bigint;
+  company_count integer := 0;
+  contact_count integer := 0;
+  contact_note_count integer := 0;
+  deal_count integer := 0;
+  deal_note_count integer := 0;
+  task_count integer := 0;
+  commission_count integer := 0;
+  namespace_count integer := 0;
+  storage_object_count integer := 0;
+  counts jsonb;
+  transferred_deal_ids bigint[] := array[]::bigint[];
+  ownership_mismatches jsonb;
+begin
+  select * into actor_record
+    from public.sales
+    where id = p_actor_sales_id
+    for update;
+  if actor_record.id is null or not actor_record.administrator or actor_record.disabled then
+    raise exception 'Only an active administrator can delete users';
+  end if;
+
+  select * into source_record
+    from public.sales
+    where id = p_source_sales_id
+    for update;
+  if source_record.id is null then
+    raise exception 'User not found';
+  end if;
+  if source_record.id = actor_record.id then
+    raise exception 'Administrators cannot delete their own account';
+  end if;
+  if lower(btrim(source_record.email::text)) is distinct from lower(btrim(p_confirmation_email)) then
+    raise exception 'Confirmation email does not match';
+  end if;
+
+  select * into replacement_record
+    from public.sales
+    where id = p_replacement_sales_id
+    for update;
+  if replacement_record.id is null or replacement_record.disabled then
+    raise exception 'Replacement user must be active';
+  end if;
+  if replacement_record.id = source_record.id then
+    raise exception 'Replacement user must be different';
+  end if;
+
+  if source_record.administrator then
+    select count(*) into active_admin_count
+      from public.sales
+      where administrator = true and disabled = false;
+    if active_admin_count <= 1 then
+      raise exception 'The final active administrator cannot be deleted';
+    end if;
+  end if;
+
+  if source_record.deletion_pending_at is not null then
+    if source_record.deletion_replacement_sales_id is distinct from replacement_record.id then
+      raise exception 'Deletion is already pending with another replacement user';
+    end if;
+    select id, transfer_counts into event_id, counts
+      from public.user_deletion_events
+      where source_sales_id = source_record.id and status = 'prepared'
+      order by id desc limit 1;
+    return jsonb_build_object(
+      'event_id', event_id,
+      'auth_user_id', source_record.user_id,
+      'source_sales_id', source_record.id,
+      'replacement_sales_id', replacement_record.id,
+      'transfer_counts', coalesce(counts, '{}'::jsonb),
+      'deletion_pending', true
+    );
+  end if;
+
+  select coalesce(array_agg(id), array[]::bigint[]) into transferred_deal_ids
+    from public.deals where sales_id = source_record.id;
+
+  update public.companies set sales_id = replacement_record.id where sales_id = source_record.id;
+  get diagnostics company_count = row_count;
+  update public.contacts set sales_id = replacement_record.id where sales_id = source_record.id;
+  get diagnostics contact_count = row_count;
+  perform set_config('app.user_deletion_transfer', 'on', true);
+  update public.deals set
+    sales_id = replacement_record.id,
+    new_commission_rate_snapshot = replacement_record.new_client_commission_rate,
+    recurring_commission_rate_snapshot = replacement_record.recurring_client_commission_rate,
+    updated_at = now()
+  where sales_id = source_record.id;
+  get diagnostics deal_count = row_count;
+  update public.contact_notes set sales_id = replacement_record.id where sales_id = source_record.id;
+  get diagnostics contact_note_count = row_count;
+  update public.deal_notes set sales_id = replacement_record.id where sales_id = source_record.id;
+  get diagnostics deal_note_count = row_count;
+  update public.tasks set sales_id = replacement_record.id where sales_id = source_record.id;
+  get diagnostics task_count = row_count;
+  update public.commissions
+    set
+      sales_id = replacement_record.id,
+      applied_rate = case confirmed_client_type
+        when 'new' then replacement_record.new_client_commission_rate
+        else replacement_record.recurring_client_commission_rate
+      end,
+      commission_amount = round(final_invoice_total * (
+        case confirmed_client_type
+          when 'new' then replacement_record.new_client_commission_rate
+          else replacement_record.recurring_client_commission_rate
+        end
+      ) / 100, 2),
+      updated_at = now()
+    where sales_id = source_record.id and status = 'pending_review';
+  get diagnostics commission_count = row_count;
+  update public.attachment_namespaces
+    set current_owner_sales_id = replacement_record.id
+    where current_owner_sales_id = source_record.id;
+  get diagnostics namespace_count = row_count;
+  update storage.objects
+    set
+      owner = replacement_record.user_id,
+      owner_id = replacement_record.user_id::text
+    where owner = source_record.user_id
+      or owner_id = source_record.user_id::text;
+  get diagnostics storage_object_count = row_count;
+
+  perform set_config('app.user_deletion_transfer', 'off', true);
+  select jsonb_agg(jsonb_build_object(
+    'deal_id', d.id,
+    'deal_sales_id', d.sales_id,
+    'contact_id', contact_id,
+    'contact_sales_id', c.sales_id
+  )) into ownership_mismatches
+    from public.deals d
+    cross join lateral unnest(coalesce(d.contact_ids, array[]::bigint[])) contact_id
+    left join public.contacts c on c.id = contact_id
+    where d.id = any(transferred_deal_ids)
+      and (c.id is null or c.sales_id is distinct from d.sales_id);
+  if ownership_mismatches is not null then
+    raise exception 'User deletion transfer would leave mismatched deal contact ownership: %', ownership_mismatches;
+  end if;
+
+  counts := jsonb_build_object(
+    'companies', company_count,
+    'contacts', contact_count,
+    'contact_notes', contact_note_count,
+    'deals', deal_count,
+    'deal_notes', deal_note_count,
+    'tasks', task_count,
+    'pending_commissions', commission_count,
+    'attachment_namespaces', namespace_count,
+    'storage_objects', storage_object_count
+  );
+
+  update public.sales set
+    disabled = true,
+    deletion_pending_at = now(),
+    deletion_replacement_sales_id = replacement_record.id
+  where id = source_record.id;
+
+  insert into public.user_deletion_events (
+    source_sales_id, replacement_sales_id, actor_sales_id, transfer_counts
+  ) values (
+    source_record.id, replacement_record.id, actor_record.id, counts
+  ) returning id into event_id;
+
+  return jsonb_build_object(
+    'event_id', event_id,
+    'auth_user_id', source_record.user_id,
+    'source_sales_id', source_record.id,
+    'replacement_sales_id', replacement_record.id,
+    'transfer_counts', counts,
+    'deletion_pending', true
+  );
+end;
+$$;
+
+CREATE OR REPLACE FUNCTION "public"."finalize_sales_user_deletion"(
+    "p_event_id" bigint
+) RETURNS void
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+begin
+  update public.user_deletion_events
+    set status = 'completed', completed_at = now()
+    where id = p_event_id and status = 'prepared';
+  if not found then
+    raise exception 'Pending user deletion event not found';
+  end if;
 end;
 $$;
 

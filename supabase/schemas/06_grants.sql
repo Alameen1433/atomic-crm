@@ -100,6 +100,16 @@ grant execute on function public.reassign_deal(bigint, bigint, text) to authenti
 revoke all on function public.update_sales_commission_rates(bigint, bigint, numeric, numeric) from public;
 grant execute on function public.update_sales_commission_rates(bigint, bigint, numeric, numeric) to service_role;
 
+revoke all on function public.prepare_sales_user_deletion(bigint, bigint, bigint, text) from public;
+grant execute on function public.prepare_sales_user_deletion(bigint, bigint, bigint, text) to service_role;
+
+revoke all on function public.finalize_sales_user_deletion(bigint) from public;
+grant execute on function public.finalize_sales_user_deletion(bigint) to service_role;
+
+revoke all on function public.sync_sales_identity() from public;
+revoke all on function public.ensure_attachment_namespace() from public;
+revoke all on function public.guard_auth_user_deletion() from public;
+
 -- Table grants
 grant all on table public.companies to anon;
 grant all on table public.companies to authenticated;
@@ -124,6 +134,18 @@ grant all on table public.deal_notes to service_role;
 grant all on table public.sales to anon;
 grant all on table public.sales to authenticated;
 grant all on table public.sales to service_role;
+
+revoke all on table public.sales_identities from anon;
+revoke all on table public.sales_identities from authenticated;
+revoke all on table public.sales_identities from service_role;
+grant select on table public.sales_identities to authenticated;
+grant select on table public.sales_identities to service_role;
+
+revoke all on table public.attachment_namespaces from anon;
+revoke all on table public.attachment_namespaces from authenticated;
+revoke all on table public.attachment_namespaces from service_role;
+grant select on table public.attachment_namespaces to authenticated;
+grant select on table public.attachment_namespaces to service_role;
 
 grant all on table public.tags to anon;
 grant all on table public.tags to authenticated;
@@ -160,6 +182,12 @@ revoke all on table public.deal_ownership_events from authenticated;
 revoke all on table public.deal_ownership_events from service_role;
 grant select on table public.deal_ownership_events to authenticated;
 grant select on table public.deal_ownership_events to service_role;
+
+revoke all on table public.user_deletion_events from anon;
+revoke all on table public.user_deletion_events from authenticated;
+revoke all on table public.user_deletion_events from service_role;
+grant select on table public.user_deletion_events to authenticated;
+grant select on table public.user_deletion_events to service_role;
 
 grant all on table public.configuration to anon;
 grant all on table public.configuration to authenticated;

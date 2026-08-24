@@ -36,6 +36,32 @@ create or replace trigger set_task_sales_id_trigger
     before insert or update on public.tasks
     for each row execute function public.set_child_sales_id_from_parent();
 
+-- Preserve the original creator separately from the mutable owner. The `zz_`
+-- prefix makes these run after the ownership-populating BEFORE triggers.
+create or replace trigger zz_set_company_created_by_sales_id
+    before insert on public.companies
+    for each row execute function public.set_created_by_sales_id();
+
+create or replace trigger zz_set_contact_created_by_sales_id
+    before insert on public.contacts
+    for each row execute function public.set_created_by_sales_id();
+
+create or replace trigger zz_set_contact_note_created_by_sales_id
+    before insert on public.contact_notes
+    for each row execute function public.set_created_by_sales_id();
+
+create or replace trigger zz_set_deal_created_by_sales_id
+    before insert on public.deals
+    for each row execute function public.set_created_by_sales_id();
+
+create or replace trigger zz_set_deal_note_created_by_sales_id
+    before insert on public.deal_notes
+    for each row execute function public.set_created_by_sales_id();
+
+create or replace trigger zz_set_task_created_by_sales_id
+    before insert on public.tasks
+    for each row execute function public.set_created_by_sales_id();
+
 -- Must fire after the other BEFORE ROW deal triggers (set_deal_sales_id_trigger,
 -- set_deal_commission_rate_snapshots_trigger, protect_deal_commission_fields_trigger)
 -- so it validates the final sales_id. PostgreSQL fires same-event triggers in
@@ -87,6 +113,14 @@ create or replace trigger on_deal_notes_deleted_delete_note_attachments
     for each row execute function public.cleanup_note_attachments();
 
 -- Auth triggers: sync auth.users to public.sales
+create or replace trigger "10_sync_sales_identity"
+    after insert or update or delete on public.sales
+    for each row execute function public.sync_sales_identity();
+
+create or replace trigger "20_ensure_attachment_namespace"
+    after insert on public.sales
+    for each row execute function public.ensure_attachment_namespace();
+
 create or replace trigger on_auth_user_created
     after insert on auth.users
     for each row execute function public.handle_new_user();
@@ -94,3 +128,7 @@ create or replace trigger on_auth_user_created
 create or replace trigger on_auth_user_updated
     after update on auth.users
     for each row execute function public.handle_update_user();
+
+create or replace trigger on_auth_user_deleting
+    before delete on auth.users
+    for each row execute function public.guard_auth_user_deletion();

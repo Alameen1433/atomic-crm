@@ -20,11 +20,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { CrmDataProvider } from "../providers/types";
 import type { Sale, SalesFormData } from "../types";
 import { SalesInputs } from "./SalesInputs";
+import { DeleteSalesUserButton } from "./DeleteSalesUserButton";
 
 function EditToolbar() {
   return (
     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <ResetPartnerPasswordButton />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <ResetPartnerPasswordButton />
+        <DeleteSalesUserButton />
+      </div>
       <div className="flex justify-end gap-4">
         <CancelButton />
         <SaveButton />

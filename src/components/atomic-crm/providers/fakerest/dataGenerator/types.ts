@@ -19,6 +19,7 @@ export interface Db {
   deals: Deal[];
   deal_notes: DealNote[];
   sales: Sale[];
+  sales_identities: Sale[];
   tags: Tag[];
   tasks: Task[];
   commissions: Commission[];

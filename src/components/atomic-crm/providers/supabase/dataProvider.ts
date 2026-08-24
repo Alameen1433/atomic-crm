@@ -11,6 +11,8 @@ import type {
   Commission,
   Deal,
   DealNote,
+  DeleteSalesUserInput,
+  DeleteSalesUserResult,
   RAFile,
   Sale,
   SalesFormData,
@@ -207,6 +209,31 @@ const getDataProviderWithCustomMethods = () => {
       }
 
       return passwordUpdated.data;
+    },
+    async salesDelete({
+      salesId,
+      replacementSalesId,
+      confirmationEmail,
+    }: DeleteSalesUserInput): Promise<DeleteSalesUserResult> {
+      const { data, error } = await getSupabaseClient().functions.invoke<{
+        data: DeleteSalesUserResult;
+      }>("users", {
+        method: "DELETE",
+        body: {
+          sales_id: salesId,
+          replacement_sales_id: replacementSalesId,
+          confirmation_email: confirmationEmail,
+        },
+      });
+
+      if (!data?.data || error) {
+        console.error("salesDelete.error", error);
+        throw new Error(
+          await getFunctionErrorMessage(error, "Failed to delete the user"),
+        );
+      }
+
+      return data.data;
     },
     async unarchiveDeal(deal: Deal) {
       // get all deals where stage is the same as the deal to unarchive

@@ -95,6 +95,6 @@ const newRegistryContent = {
 
 fs.writeFileSync(
   registryPath,
-  JSON.stringify(newRegistryContent, null, 2),
+  `${JSON.stringify(newRegistryContent, null, 2)}\n`,
   "utf-8",
 );

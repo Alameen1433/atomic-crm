@@ -16,7 +16,11 @@ create policy "CRM files select own or admin" on storage.objects
     bucket_id = 'attachments'
     and (
       public.is_admin()
-      or (storage.foldername(name))[1] = public.current_sales_id()::text
+      or exists (
+        select 1 from public.attachment_namespaces namespace
+        where namespace.namespace_sales_id::text = (storage.foldername(name))[1]
+          and namespace.current_owner_sales_id = public.current_sales_id()
+      )
       or (
         coalesce(array_length(storage.foldername(name), 1), 0) = 0
         and public.can_access_legacy_attachment(name)
@@ -38,7 +42,11 @@ create policy "CRM files update own or admin" on storage.objects
     bucket_id = 'attachments'
     and (
       public.is_admin()
-      or (storage.foldername(name))[1] = public.current_sales_id()::text
+      or exists (
+        select 1 from public.attachment_namespaces namespace
+        where namespace.namespace_sales_id::text = (storage.foldername(name))[1]
+          and namespace.current_owner_sales_id = public.current_sales_id()
+      )
       or (
         coalesce(array_length(storage.foldername(name), 1), 0) = 0
         and public.can_access_legacy_attachment(name)
@@ -51,7 +59,11 @@ create policy "CRM files delete own or admin" on storage.objects
     bucket_id = 'attachments'
     and (
       public.is_admin()
-      or (storage.foldername(name))[1] = public.current_sales_id()::text
+      or exists (
+        select 1 from public.attachment_namespaces namespace
+        where namespace.namespace_sales_id::text = (storage.foldername(name))[1]
+          and namespace.current_owner_sales_id = public.current_sales_id()
+      )
       or (
         coalesce(array_length(storage.foldername(name), 1), 0) = 0
         and public.can_access_legacy_attachment(name)

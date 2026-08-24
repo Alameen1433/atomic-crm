@@ -10,12 +10,15 @@ alter table public.contact_notes enable row level security;
 alter table public.deals enable row level security;
 alter table public.deal_notes enable row level security;
 alter table public.sales enable row level security;
+alter table public.sales_identities enable row level security;
+alter table public.attachment_namespaces enable row level security;
 alter table public.tags enable row level security;
 alter table public.tasks enable row level security;
 alter table public.commissions enable row level security;
 alter table public.commission_events enable row level security;
 alter table public.sales_commission_rate_history enable row level security;
 alter table public.deal_ownership_events enable row level security;
+alter table public.user_deletion_events enable row level security;
 alter table public.configuration enable row level security;
 alter table public.favicons_excluded_domains enable row level security;
 
@@ -127,6 +130,14 @@ create policy "Sales select self or admin" on public.sales
     and (public.is_admin() or user_id = auth.uid())
   );
 
+create policy "Sales identities read authenticated" on public.sales_identities
+  for select to authenticated
+  using (public.current_sales_id() is not null);
+
+create policy "Attachment namespaces select own or admin" on public.attachment_namespaces
+  for select to authenticated
+  using (public.is_admin() or current_owner_sales_id = public.current_sales_id());
+
 create policy "Tags read authenticated" on public.tags
   for select to authenticated using (public.current_sales_id() is not null);
 create policy "Tags insert admin" on public.tags
@@ -175,6 +186,9 @@ create policy "Deal ownership events select own or admin" on public.deal_ownersh
     public.is_admin() or previous_sales_id = public.current_sales_id()
     or new_sales_id = public.current_sales_id()
   );
+
+create policy "User deletion events select admin" on public.user_deletion_events
+  for select to authenticated using (public.is_admin());
 
 create policy "Configuration read authenticated" on public.configuration
   for select to authenticated using (public.current_sales_id() is not null);

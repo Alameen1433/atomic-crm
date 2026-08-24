@@ -4,6 +4,11 @@ import { corsHeaders, OptionsMiddleware } from "../_shared/cors.ts";
 import { createErrorResponse } from "../_shared/utils.ts";
 import { AuthMiddleware, UserMiddleware } from "../_shared/authentication.ts";
 import { getUserSale } from "../_shared/getUserSale.ts";
+import {
+  formatDeleteUserResult,
+  parseDeleteUserRequest,
+  type PreparedUserDeletion,
+} from "./deleteUserPolicy.ts";
 
 const hasValidCommissionRates = (newRate: unknown, recurringRate: unknown) =>
   typeof newRate === "number" &&
@@ -268,6 +273,100 @@ async function patchUser(req: Request, currentUserSale: any) {
   }
 }
 
+async function deleteUser(req: Request, currentUserSale: any) {
+  if (!currentUserSale.administrator) {
+    return createErrorResponse(403, "Only administrators can delete users", {
+      code: "ADMIN_REQUIRED",
+      phase: "authorization",
+      retryable: false,
+    });
+  }
+
+  let requestBody;
+  try {
+    requestBody = parseDeleteUserRequest(await req.json());
+  } catch (error) {
+    return createErrorResponse(400, error?.message ?? "Invalid request", {
+      code: "INVALID_DELETE_REQUEST",
+      phase: "validation",
+      retryable: false,
+    });
+  }
+
+  if (Number(currentUserSale.id) === requestBody.sales_id) {
+    return createErrorResponse(
+      400,
+      "Administrators cannot delete their own account",
+      {
+        code: "SELF_DELETE_FORBIDDEN",
+        phase: "validation",
+        retryable: false,
+      },
+    );
+  }
+
+  const { data: preparedData, error: prepareError } = await supabaseAdmin.rpc(
+    "prepare_sales_user_deletion",
+    {
+      p_source_sales_id: requestBody.sales_id,
+      p_replacement_sales_id: requestBody.replacement_sales_id,
+      p_actor_sales_id: currentUserSale.id,
+      p_confirmation_email: requestBody.confirmation_email,
+    },
+  );
+  if (prepareError || !preparedData) {
+    console.error("Error preparing user deletion:", prepareError);
+    return createErrorResponse(
+      400,
+      prepareError?.message ?? "Failed to prepare user deletion",
+      {
+        code: "DELETE_PREPARATION_FAILED",
+        phase: "transfer",
+        retryable: false,
+      },
+    );
+  }
+
+  const prepared = preparedData as PreparedUserDeletion;
+
+  const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
+    prepared.auth_user_id,
+  );
+  if (deleteError) {
+    console.error("Error deleting Auth user:", deleteError);
+    return createErrorResponse(
+      deleteError.status ?? 500,
+      "User access was revoked and records were transferred, but Auth cleanup failed. Retry deletion.",
+      {
+        code: "AUTH_DELETE_FAILED",
+        phase: "auth",
+        retryable: true,
+        deletionPending: true,
+      },
+    );
+  }
+
+  const { error: finalizeError } = await supabaseAdmin.rpc(
+    "finalize_sales_user_deletion",
+    { p_event_id: prepared.event_id },
+  );
+  if (finalizeError) {
+    // Auth and CRM deletion already succeeded. Do not report a false failure to
+    // the administrator for an audit-finalization issue.
+    console.error("Error finalizing user deletion audit:", finalizeError);
+  }
+
+  return new Response(
+    JSON.stringify({
+      data: {
+        ...formatDeleteUserResult(prepared),
+        auditFinalized: !finalizeError,
+      },
+    }),
+    { headers: { "Content-Type": "application/json", ...corsHeaders } },
+  );
+}
+
 Deno.serve(async (req: Request) =>
   OptionsMiddleware(req, async (req) =>
     AuthMiddleware(req, async (req) =>
@@ -283,6 +382,10 @@ Deno.serve(async (req: Request) =>
 
         if (req.method === "PATCH") {
           return patchUser(req, currentUserSale);
+        }
+
+        if (req.method === "DELETE") {
+          return deleteUser(req, currentUserSale);
         }
 
         return createErrorResponse(405, "Method Not Allowed");

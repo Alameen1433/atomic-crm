@@ -15,6 +15,8 @@ import type {
   ContactNote,
   Deal,
   DealNote,
+  DeleteSalesUserInput,
+  DeleteSalesUserResult,
   Sale,
   SalesFormData,
   SignUpData,
@@ -242,6 +244,10 @@ export const createDataProvider = ({
         },
       });
 
+      await baseDataProvider.create("sales_identities", {
+        data: { ...response.data },
+      });
+
       return response.data;
     },
     salesUpdate: async (
@@ -296,6 +302,103 @@ export const createDataProvider = ({
       });
 
       return true;
+    },
+    salesDelete: async ({
+      salesId,
+      replacementSalesId,
+      confirmationEmail,
+    }: DeleteSalesUserInput): Promise<DeleteSalesUserResult> => {
+      const identity = await getIdentity();
+      if (!identity?.administrator) {
+        throw new Error("Only administrators can delete users");
+      }
+      if (identity.id === salesId) {
+        throw new Error("Administrators cannot delete their own account");
+      }
+
+      const [{ data: source }, { data: replacement }] = await Promise.all([
+        baseDataProvider.getOne<Sale>("sales", { id: salesId }),
+        baseDataProvider.getOne<Sale>("sales", { id: replacementSalesId }),
+      ]);
+      if (
+        source.email.trim().toLowerCase() !==
+        confirmationEmail.trim().toLowerCase()
+      ) {
+        throw new Error("Confirmation email does not match");
+      }
+      if (replacement.disabled || replacement.id === source.id) {
+        throw new Error("Replacement user must be active and different");
+      }
+      if (source.administrator) {
+        const { data: administrators } = await baseDataProvider.getList<Sale>(
+          "sales",
+          {
+            filter: { administrator: true, disabled: false },
+            pagination: { page: 1, perPage: 1000 },
+            sort: { field: "id", order: "ASC" },
+          },
+        );
+        if (administrators.length <= 1) {
+          throw new Error("The final active administrator cannot be deleted");
+        }
+      }
+
+      const transferCounts: Record<string, number> = {};
+      for (const resource of [
+        "companies",
+        "contacts",
+        "contact_notes",
+        "deals",
+        "deal_notes",
+        "tasks",
+      ]) {
+        const { data: records } = await baseDataProvider.getList(resource, {
+          filter: { sales_id: salesId },
+          pagination: { page: 1, perPage: 10000 },
+          sort: { field: "id", order: "ASC" },
+        });
+        await Promise.all(
+          records.map((record) =>
+            baseDataProvider.update(resource, {
+              id: record.id,
+              data: { sales_id: replacementSalesId },
+              previousData: record,
+            }),
+          ),
+        );
+        transferCounts[resource] = records.length;
+      }
+
+      const { data: commissions } = await baseDataProvider.getList<Commission>(
+        "commissions",
+        {
+          filter: { sales_id: salesId, status: "pending_review" },
+          pagination: { page: 1, perPage: 10000 },
+          sort: { field: "id", order: "ASC" },
+        },
+      );
+      await Promise.all(
+        commissions.map((commission) =>
+          baseDataProvider.update("commissions", {
+            id: commission.id,
+            data: { sales_id: replacementSalesId },
+            previousData: commission,
+          }),
+        ),
+      );
+      transferCounts.pending_commissions = commissions.length;
+
+      await baseDataProvider.delete("sales", {
+        id: salesId,
+        previousData: source,
+      });
+
+      return {
+        eventId: Date.now(),
+        sourceSalesId: salesId,
+        replacementSalesId,
+        transferCounts,
+      };
     },
     mergeContacts: async (sourceId: Identifier, targetId: Identifier) => {
       return mergeContacts(sourceId, targetId, baseDataProvider);

@@ -39,6 +39,9 @@ const OptionsField = (_props: { label?: string | boolean }) => {
           {translate("resources.sales.fields.disabled")}
         </Badge>
       )}
+      {record.deletion_pending_at && (
+        <Badge variant="destructive">Deletion pending</Badge>
+      )}
     </div>
   );
 };

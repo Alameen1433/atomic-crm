@@ -12,6 +12,7 @@ import type { Db } from "./types";
 export default (): Db => {
   const db = {} as Db;
   db.sales = generateSales(db);
+  db.sales_identities = db.sales.map((sale) => ({ ...sale }));
   db.tags = generateTags(db);
   db.companies = generateCompanies(db);
   db.contacts = generateContacts(db);

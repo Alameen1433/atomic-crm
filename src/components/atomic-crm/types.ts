@@ -37,6 +37,8 @@ export type Sale = {
   user_id: string;
   new_client_commission_rate: number;
   recurring_client_commission_rate: number;
+  deletion_pending_at?: string | null;
+  deletion_replacement_sales_id?: Identifier | null;
 
   /**
    * This is a copy of the user's email, to make it easier to handle by react admin
@@ -51,6 +53,19 @@ export type Sale = {
    */
   password?: string;
 } & Pick<RaRecord, "id">;
+
+export type DeleteSalesUserInput = {
+  salesId: Identifier;
+  replacementSalesId: Identifier;
+  confirmationEmail: string;
+};
+
+export type DeleteSalesUserResult = {
+  eventId: Identifier;
+  sourceSalesId: Identifier;
+  replacementSalesId: Identifier;
+  transferCounts: Record<string, number>;
+};
 
 export type Company = {
   name: string;
