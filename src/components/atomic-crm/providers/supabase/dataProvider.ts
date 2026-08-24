@@ -21,6 +21,7 @@ import type {
   TransitionCommissionInput,
 } from "../../types";
 import type { ConfigurationContextValue } from "../../root/ConfigurationContext";
+import { assertGenericDeleteAllowed } from "../../sales/deleteSalesUser";
 import { ASSETS_BUCKET, ATTACHMENTS_BUCKET } from "../commons/attachments";
 import { getIsInitialized } from "./authProvider";
 import { getSupabaseClient } from "./supabase";
@@ -99,6 +100,14 @@ const getDataProviderWithCustomMethods = () => {
       }
 
       return baseDataProvider.getOne(resource, params);
+    },
+    async delete(resource: string, params: any) {
+      assertGenericDeleteAllowed(resource);
+      return baseDataProvider.delete(resource, params);
+    },
+    async deleteMany(resource: string, params: any) {
+      assertGenericDeleteAllowed(resource);
+      return baseDataProvider.deleteMany(resource, params);
     },
 
     async signUp({ email, password, first_name, last_name }: SignUpData) {

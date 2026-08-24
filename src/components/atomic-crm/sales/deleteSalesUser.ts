@@ -1,5 +1,14 @@
 import type { Identifier } from "ra-core";
 
+export const GENERIC_SALES_DELETE_ERROR =
+  "Users must be permanently deleted with the admin deletion workflow";
+
+export function assertGenericDeleteAllowed(resource: string) {
+  if (resource === "sales") {
+    throw new Error(GENERIC_SALES_DELETE_ERROR);
+  }
+}
+
 export function canDeleteSalesUser(
   administrator: boolean,
   actorId: Identifier | undefined,

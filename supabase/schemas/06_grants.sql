@@ -134,6 +134,8 @@ grant all on table public.deal_notes to service_role;
 grant all on table public.sales to anon;
 grant all on table public.sales to authenticated;
 grant all on table public.sales to service_role;
+revoke delete on table public.sales from anon;
+revoke delete on table public.sales from authenticated;
 
 revoke all on table public.sales_identities from anon;
 revoke all on table public.sales_identities from authenticated;

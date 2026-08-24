@@ -37,7 +37,11 @@ import {
   totalTransferredRecords,
 } from "./deleteSalesUser";
 
-export function DeleteSalesUserButton() {
+export function DeleteSalesUserButton({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const record = useRecordContext<Sale>();
   const { identity } = useGetIdentity();
   const dataProvider = useDataProvider<CrmDataProvider>();
@@ -111,7 +115,15 @@ export function DeleteSalesUserButton() {
 
   return (
     <>
-      <Button type="button" variant="destructive" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="destructive"
+        size={compact ? "sm" : "default"}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
         <Trash2 className="mr-2 size-4" />
         {record.deletion_pending_at
           ? "Retry permanent deletion"

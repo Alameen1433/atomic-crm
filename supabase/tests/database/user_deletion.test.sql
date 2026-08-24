@@ -1,6 +1,6 @@
 begin;
 
-select plan(25);
+select plan(27);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password,
@@ -33,6 +33,14 @@ select ok(
     'EXECUTE'
   ),
   'authenticated browser users cannot invoke deletion preparation directly'
+);
+select ok(
+  not has_table_privilege('anon', 'public.sales', 'DELETE'),
+  'anonymous clients cannot use generic sales deletion'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.sales', 'DELETE'),
+  'authenticated clients cannot use generic sales deletion'
 );
 select is(
   (select count(*) from public.sales_identities where id in (:admin_id, :source_id, :target_id, :unused_id)),

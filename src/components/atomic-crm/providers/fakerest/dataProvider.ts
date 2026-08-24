@@ -25,6 +25,7 @@ import type {
   TransitionCommissionInput,
 } from "../../types";
 import type { ConfigurationContextValue } from "../../root/ConfigurationContext";
+import { assertGenericDeleteAllowed } from "../../sales/deleteSalesUser";
 import { getActivityLog } from "../commons/activity";
 import { getCompanyAvatar } from "../commons/getCompanyAvatar";
 import { getContactAvatar } from "../commons/getContactAvatar";
@@ -187,6 +188,14 @@ export const createDataProvider = ({
         return { data: all.slice(start, start + perPage), total: all.length };
       }
       return baseDataProvider.getList(resource, params);
+    },
+    async delete(resource: string, params: any) {
+      assertGenericDeleteAllowed(resource);
+      return baseDataProvider.delete(resource, params);
+    },
+    async deleteMany(resource: string, params: any) {
+      assertGenericDeleteAllowed(resource);
+      return baseDataProvider.deleteMany(resource, params);
     },
     unarchiveDeal: async (deal: Deal) => {
       // get all deals where stage is the same as the deal to unarchive

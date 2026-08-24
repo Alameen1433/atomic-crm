@@ -7,6 +7,7 @@ import { SearchInput } from "@/components/admin/search-input";
 import { Badge } from "@/components/ui/badge";
 
 import { TopToolbar } from "../layout/TopToolbar";
+import { DeleteSalesUserButton } from "./DeleteSalesUserButton";
 
 const SalesListActions = () => (
   <TopToolbar>
@@ -53,7 +54,7 @@ export function SalesList() {
       actions={<SalesListActions />}
       sort={{ field: "first_name", order: "ASC" }}
     >
-      <DataTable>
+      <DataTable bulkActionButtons={false}>
         <DataTable.Col source="first_name" />
         <DataTable.Col source="last_name" />
         <DataTable.Col source="email" />
@@ -67,6 +68,9 @@ export function SalesList() {
         />
         <DataTable.Col label={false}>
           <OptionsField />
+        </DataTable.Col>
+        <DataTable.Col label={false}>
+          <DeleteSalesUserButton compact />
         </DataTable.Col>
       </DataTable>
     </List>
