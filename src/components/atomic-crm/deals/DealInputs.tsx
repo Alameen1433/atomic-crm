@@ -27,7 +27,7 @@ const leadSources = [
 export const DealInputs = () => {
   const isMobile = useIsMobile();
   return (
-    <div className="flex flex-col gap-8">
+    <div className={`flex flex-col ${isMobile ? "gap-6" : "gap-8"}`}>
       <DealInfoInputs />
 
       <div className={`flex gap-6 ${isMobile ? "flex-col" : "flex-row"}`}>
