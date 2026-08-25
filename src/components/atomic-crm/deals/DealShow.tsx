@@ -27,15 +27,13 @@ import {
 import { DeleteButton } from "@/components/admin/delete-button";
 import { EditButton } from "@/components/admin/edit-button";
 import { ReferenceArrayField } from "@/components/admin/reference-array-field";
-import { ReferenceField } from "@/components/admin/reference-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogTitle } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-import { CompanyAvatar } from "../companies/CompanyAvatar";
 import { NoteCreate } from "../notes/NoteCreate";
 import { NotesIterator } from "../notes/NotesIterator";
 import { useConfigurationContext } from "../root/ConfigurationContext";
@@ -45,6 +43,7 @@ import { findDealLabel, formatISODateString } from "./dealUtils";
 import { RecordPaymentDialog } from "../commissions/RecordPaymentDialog";
 import { ReassignDealDialog } from "./ReassignDealDialog";
 import { DealDialogContent } from "./DealDialogContent";
+import { DealDialogHeader } from "./DealDialogHeader";
 
 export const DealShow = ({ open, id }: { open: boolean; id?: string }) => {
   const redirect = useRedirect();
@@ -78,41 +77,16 @@ const DealShowContent = () => {
       <div className={cn(!isMobile && "space-y-2")}>
         {record.archived_at ? <ArchivedTitle /> : null}
         <div className="flex-1">
-          <header
-            className={cn(
-              "flex items-center",
-              isMobile
-                ? "sticky top-0 z-20 gap-3 border-b bg-background/95 px-4 py-3 pr-16 backdrop-blur"
-                : "mb-8 justify-between gap-4",
-            )}
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <ReferenceField
-                source="company_id"
-                reference="companies"
-                link="show"
-              >
-                <CompanyAvatar />
-              </ReferenceField>
-              <DialogTitle
-                className={cn(
-                  "min-w-0 text-left font-semibold",
-                  isMobile
-                    ? "line-clamp-2 text-lg leading-snug"
-                    : "text-2xl leading-tight",
-                )}
-              >
-                {record.name}
-              </DialogTitle>
-            </div>
-            {!isMobile ? (
+          <DealDialogHeader
+            title={record.name}
+            actions={
               <DealActions
                 record={record}
                 identity={identity}
                 className={record.archived_at ? "" : "pr-12"}
               />
-            ) : null}
-          </header>
+            }
+          />
 
           <div className={cn(isMobile && "space-y-6 px-4 py-4 pb-8")}>
             {isMobile ? (
