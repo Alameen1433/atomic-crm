@@ -1,27 +1,33 @@
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
   BriefcaseBusiness,
   Building2,
+  CheckSquare2,
   Home,
   IndianRupee,
-  ListTodo,
   Menu,
+  NotebookPen,
   Plus,
   Settings,
   UserCog,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { CanAccess, useTranslate } from "ra-core";
 import { Link, matchPath, useLocation, useMatch } from "react-router";
-import { ContactCreateSheet } from "../contacts/ContactCreateSheet";
 import { useState } from "react";
+
+import { ContactCreateSheet } from "../contacts/ContactCreateSheet";
 import { NoteCreateSheet } from "../notes/NoteCreateSheet";
 import { TaskCreateSheet } from "../tasks/TaskCreateSheet";
 
@@ -53,42 +59,32 @@ export const MobileNavigation = () => {
   return (
     <nav
       aria-label={translate("crm.navigation.label")}
-      className="fixed right-0 bottom-0 left-0 z-50 h-[calc(3.5rem+env(safe-area-inset-bottom))] bg-secondary pb-[env(safe-area-inset-bottom)]"
+      className="fixed inset-x-0 bottom-0 z-50 h-[calc(4.5rem+env(safe-area-inset-bottom))] border-t border-border/70 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgb(0_0_0/0.06)] backdrop-blur-lg dark:bg-background/90"
     >
-      <div className="flex h-14 w-full items-stretch justify-around px-1">
-        <>
-          <NavigationButton
-            href="/"
-            Icon={Home}
-            label={translate("ra.page.dashboard")}
-            isActive={currentPath === "/"}
-          />
-          <NavigationButton
-            href="/contacts"
-            Icon={Users}
-            label={translate("resources.contacts.name", {
-              smart_count: 2,
-            })}
-            isActive={currentPath === "/contacts"}
-          />
-          <NavigationButton
-            href="/companies"
-            Icon={Building2}
-            label={translate("resources.companies.name", {
-              smart_count: 2,
-            })}
-            isActive={currentPath === "/companies"}
-          />
-          <NavigationButton
-            href="/deals"
-            Icon={BriefcaseBusiness}
-            label={translate("resources.deals.name", { smart_count: 2 })}
-            isActive={currentPath === "/deals"}
-          />
-          <MoreButton currentPath={currentPath} />
-        </>
+      <div className="grid h-18 w-full grid-cols-5 items-stretch px-1.5">
+        <NavigationButton
+          href="/"
+          Icon={Home}
+          label="Home"
+          isActive={currentPath === "/"}
+        />
+        <NavigationButton
+          href="/contacts"
+          Icon={Users}
+          label={translate("resources.contacts.name", {
+            smart_count: 2,
+          })}
+          isActive={currentPath === "/contacts"}
+        />
+        <CreateButton />
+        <NavigationButton
+          href="/deals"
+          Icon={BriefcaseBusiness}
+          label={translate("resources.deals.name", { smart_count: 2 })}
+          isActive={currentPath === "/deals"}
+        />
+        <MoreButton currentPath={currentPath} />
       </div>
-      <CreateButton />
     </nav>
   );
 };
@@ -108,13 +104,20 @@ const NavigationButton = ({
     asChild
     variant="ghost"
     className={cn(
-      "h-auto min-w-0 max-w-14 flex-1 flex-col gap-1 rounded-md px-1 py-2",
-      isActive ? null : "text-muted-foreground",
+      "relative h-full min-w-0 flex-col gap-1 rounded-xl px-1 py-2 text-muted-foreground active:bg-accent",
+      isActive && "text-foreground",
     )}
   >
-    <Link to={href}>
-      <Icon className="size-6" />
-      <span className="max-w-full truncate text-[0.6rem] font-medium">
+    <Link to={href} aria-current={isActive ? "page" : undefined}>
+      <span
+        className={cn(
+          "absolute top-1.5 h-0.5 w-5 rounded-full bg-transparent",
+          isActive && "bg-primary",
+        )}
+        aria-hidden="true"
+      />
+      <Icon className="size-5.5" aria-hidden="true" />
+      <span className="w-full truncate text-center text-[10px] font-semibold leading-none">
         {label}
       </span>
     </Link>
@@ -124,9 +127,15 @@ const NavigationButton = ({
 const CreateButton = () => {
   const translate = useTranslate();
   const contact_id = useMatch("/contacts/:id/*")?.params.id;
+  const [createOpen, setCreateOpen] = useState(false);
   const [contactCreateOpen, setContactCreateOpen] = useState(false);
   const [noteCreateOpen, setNoteCreateOpen] = useState(false);
   const [taskCreateOpen, setTaskCreateOpen] = useState(false);
+
+  const openAfterClosingCreate = (openTarget: () => void) => {
+    setCreateOpen(false);
+    window.setTimeout(openTarget, 120);
+  };
 
   return (
     <>
@@ -144,111 +153,233 @@ const CreateButton = () => {
         onOpenChange={setTaskCreateOpen}
         contact_id={contact_id}
       />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+        <SheetTrigger asChild>
           <Button
-            variant="default"
-            size="icon"
-            className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] h-14 w-14 rounded-full shadow-lg"
+            variant="ghost"
+            className="h-full min-w-0 flex-col gap-1 rounded-xl px-1 py-1 text-foreground active:bg-accent"
             aria-label={translate("ra.action.create")}
           >
-            <Plus className="size-10" />
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+              <Plus className="size-6" aria-hidden="true" />
+            </span>
+            <span className="text-[10px] font-semibold leading-none">
+              {translate("ra.action.create")}
+            </span>
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem asChild className="h-12 px-4 text-base">
-            <Link to="/companies/create">
-              {translate("resources.companies.forcedCaseName", {
+        </SheetTrigger>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle>{translate("ra.action.create")}</SheetTitle>
+            <SheetDescription>
+              Add a record without leaving your current workflow.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <CreateLink
+              to="/companies/create"
+              label={translate("resources.companies.forcedCaseName", {
                 _: "Company",
               })}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild className="h-12 px-4 text-base">
-            <Link to="/deals/create">
-              {translate("resources.deals.name", {
+              Icon={Building2}
+              onNavigate={() => setCreateOpen(false)}
+            />
+            <CreateLink
+              to="/deals/create"
+              label={translate("resources.deals.name", {
                 smart_count: 1,
                 _: "Deal",
               })}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="h-12 px-4 text-base"
-            onSelect={() => {
-              setContactCreateOpen(true);
-            }}
-          >
-            {translate("resources.contacts.forcedCaseName", { _: "Contact" })}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="h-12 px-4 text-base"
-            onSelect={() => {
-              setNoteCreateOpen(true);
-            }}
-          >
-            {translate("resources.notes.forcedCaseName", { _: "Note" })}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="h-12 px-4 text-base"
-            onSelect={() => {
-              setTaskCreateOpen(true);
-            }}
-          >
-            {translate("resources.tasks.forcedCaseName", { _: "Task" })}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              Icon={BriefcaseBusiness}
+              onNavigate={() => setCreateOpen(false)}
+            />
+            <CreateAction
+              label={translate("resources.contacts.forcedCaseName", {
+                _: "Contact",
+              })}
+              Icon={UserPlus}
+              onSelect={() =>
+                openAfterClosingCreate(() => setContactCreateOpen(true))
+              }
+            />
+            <CreateAction
+              label={translate("resources.tasks.forcedCaseName", {
+                _: "Task",
+              })}
+              Icon={CheckSquare2}
+              onSelect={() =>
+                openAfterClosingCreate(() => setTaskCreateOpen(true))
+              }
+            />
+            <CreateAction
+              label={translate("resources.notes.forcedCaseName", {
+                _: "Note",
+              })}
+              Icon={NotebookPen}
+              className="col-span-2"
+              onSelect={() =>
+                openAfterClosingCreate(() => setNoteCreateOpen(true))
+              }
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 };
 
+const CreateLink = ({
+  to,
+  label,
+  Icon,
+  onNavigate,
+}: {
+  to: string;
+  label: string;
+  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  onNavigate: () => void;
+}) => (
+  <Button
+    asChild
+    variant="outline"
+    className="h-16 justify-start rounded-xl px-4 text-base"
+  >
+    <Link to={to} onClick={onNavigate}>
+      <Icon className="size-5" aria-hidden="true" />
+      {label}
+    </Link>
+  </Button>
+);
+
+const CreateAction = ({
+  label,
+  Icon,
+  onSelect,
+  className,
+}: {
+  label: string;
+  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  onSelect: () => void;
+  className?: string;
+}) => (
+  <Button
+    type="button"
+    variant="outline"
+    className={cn("h-16 justify-start rounded-xl px-4 text-base", className)}
+    onClick={onSelect}
+  >
+    <Icon className="size-5" aria-hidden="true" />
+    {label}
+  </Button>
+);
+
 const MoreButton = ({ currentPath }: { currentPath: string | boolean }) => {
   const translate = useTranslate();
-  const isActive = ["/commissions", "/tasks", "/settings", "/sales"].includes(
-    String(currentPath),
-  );
+  const isActive = [
+    "/companies",
+    "/commissions",
+    "/tasks",
+    "/settings",
+    "/sales",
+  ].includes(String(currentPath));
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Sheet>
+      <SheetTrigger asChild>
         <Button
           variant="ghost"
           className={cn(
-            "h-auto min-w-0 max-w-14 flex-1 flex-col gap-1 rounded-md px-1 py-2",
-            isActive ? null : "text-muted-foreground",
+            "relative h-full min-w-0 flex-col gap-1 rounded-xl px-1 py-2 text-muted-foreground active:bg-accent",
+            isActive && "text-foreground",
           )}
-          aria-label={translate("ra.action.show", { _: "More" })}
+          aria-label="More navigation"
         >
-          <Menu className="size-6" />
-          <span className="text-[0.6rem] font-medium">More</span>
+          <span
+            className={cn(
+              "absolute top-1.5 h-0.5 w-5 rounded-full bg-transparent",
+              isActive && "bg-primary",
+            )}
+            aria-hidden="true"
+          />
+          <Menu className="size-5.5" aria-hidden="true" />
+          <span className="text-[10px] font-semibold leading-none">More</span>
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8}>
-        <DropdownMenuItem asChild className="h-11 px-4 text-base">
-          <Link to="/commissions" className="flex items-center gap-2">
-            <IndianRupee className="size-4" /> Commission
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="h-11 px-4 text-base">
-          <Link to="/tasks" className="flex items-center gap-2">
-            <ListTodo className="size-4" />
-            {translate("resources.tasks.name", { smart_count: 2 })}
-          </Link>
-        </DropdownMenuItem>
-        <CanAccess resource="sales" action="list">
-          <DropdownMenuItem asChild className="h-11 px-4 text-base">
-            <Link to="/sales" className="flex items-center gap-2">
-              <UserCog className="size-4" />
-              {translate("resources.sales.name", { smart_count: 2 })}
-            </Link>
-          </DropdownMenuItem>
-        </CanAccess>
-        <DropdownMenuItem asChild className="h-11 px-4 text-base">
-          <Link to="/settings" className="flex items-center gap-2">
-            <Settings className="size-4" />
-            {translate("crm.settings.title")}
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </SheetTrigger>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-3xl px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+      >
+        <SheetHeader className="text-left">
+          <SheetTitle>More</SheetTitle>
+          <SheetDescription>Open another part of the CRM.</SheetDescription>
+        </SheetHeader>
+        <div className="flex flex-col gap-1 pt-1">
+          <MoreLink
+            to="/companies"
+            label={translate("resources.companies.name", { smart_count: 2 })}
+            Icon={Building2}
+            isActive={currentPath === "/companies"}
+          />
+          <MoreLink
+            to="/tasks"
+            label={translate("resources.tasks.name", { smart_count: 2 })}
+            Icon={CheckSquare2}
+            isActive={currentPath === "/tasks"}
+          />
+          <MoreLink
+            to="/commissions"
+            label="Commissions"
+            Icon={IndianRupee}
+            isActive={currentPath === "/commissions"}
+          />
+          <CanAccess resource="sales" action="list">
+            <MoreLink
+              to="/sales"
+              label={translate("resources.sales.name", { smart_count: 2 })}
+              Icon={UserCog}
+              isActive={currentPath === "/sales"}
+            />
+          </CanAccess>
+          <MoreLink
+            to="/settings"
+            label={translate("crm.settings.title")}
+            Icon={Settings}
+            isActive={currentPath === "/settings"}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
+
+const MoreLink = ({
+  to,
+  label,
+  Icon,
+  isActive,
+}: {
+  to: string;
+  label: string;
+  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  isActive: boolean;
+}) => (
+  <SheetClose asChild>
+    <Link
+      to={to}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "flex min-h-12 items-center gap-3 rounded-xl px-3 text-base font-medium transition-colors active:bg-accent",
+        isActive && "bg-accent",
+      )}
+    >
+      <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
+      <span className="flex-1">{label}</span>
+      {isActive ? (
+        <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
+      ) : null}
+    </Link>
+  </SheetClose>
+);

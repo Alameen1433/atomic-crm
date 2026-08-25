@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import "cropperjs/dist/cropper.css";
 
@@ -22,6 +23,7 @@ const ImageEditorField = (props: ImageEditorFieldProps) => {
   const source = getValues(props.source);
   const imageUrl = source?.src;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const { type = "image", emptyText, linkPosition = "none" } = props;
 
@@ -72,7 +74,9 @@ const ImageEditorField = (props: ImageEditorFieldProps) => {
           <button
             type="button"
             onClick={() => setIsDialogOpen(true)}
-            className="text-xs underline hover:no-underline cursor-pointer text-center"
+            className={`cursor-pointer text-center text-xs underline hover:no-underline ${
+              isMobile ? "min-h-11 rounded-lg px-3" : ""
+            }`}
           >
             {translate("crm.image_editor.change")}
           </button>

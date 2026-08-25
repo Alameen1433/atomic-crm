@@ -37,6 +37,11 @@ export const DealListContent = () => {
     pointerXRef.current = event.clientX;
   }, []);
 
+  const trackTouch = useCallback((event: TouchEvent) => {
+    const touch = event.touches[0];
+    if (touch) pointerXRef.current = touch.clientX;
+  }, []);
+
   const runAutoScroll = useCallback(() => {
     if (!isDraggingRef.current) return;
 
@@ -59,18 +64,23 @@ export const DealListContent = () => {
     isDraggingRef.current = false;
     pointerXRef.current = null;
     window.removeEventListener("pointermove", trackPointer);
+    window.removeEventListener("touchmove", trackTouch, true);
     if (autoScrollFrameRef.current !== null) {
       cancelAnimationFrame(autoScrollFrameRef.current);
       autoScrollFrameRef.current = null;
     }
-  }, [trackPointer]);
+  }, [trackPointer, trackTouch]);
 
   const startAutoScroll = useCallback(() => {
     stopAutoScroll();
     isDraggingRef.current = true;
     window.addEventListener("pointermove", trackPointer, { passive: true });
+    window.addEventListener("touchmove", trackTouch, {
+      capture: true,
+      passive: true,
+    });
     autoScrollFrameRef.current = requestAnimationFrame(runAutoScroll);
-  }, [runAutoScroll, stopAutoScroll, trackPointer]);
+  }, [runAutoScroll, stopAutoScroll, trackPointer, trackTouch]);
 
   useEffect(() => stopAutoScroll, [stopAutoScroll]);
 
@@ -119,9 +129,15 @@ export const DealListContent = () => {
 
   return (
     <DragDropContext onDragStart={startAutoScroll} onDragEnd={onDragEnd}>
+      <div className="mb-2 flex items-center justify-between gap-3 px-1 text-xs font-medium text-muted-foreground sm:hidden">
+        <span>Swipe to change stage</span>
+        <span>{dealStages.length} stages</span>
+      </div>
       <div
         ref={pipelineRef}
-        className="w-full overflow-x-auto overscroll-x-contain pb-4"
+        className="w-full snap-x snap-mandatory touch-pan-x overflow-x-auto overscroll-x-contain scroll-smooth scroll-px-1 pb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:scroll-auto"
+        tabIndex={0}
+        aria-label="Deal pipeline. Swipe horizontally to move between stages."
       >
         <div className="flex w-max min-w-full items-stretch gap-3 px-1">
           {dealStages.map((stage, stageIndex) => (

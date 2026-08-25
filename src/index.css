@@ -142,14 +142,34 @@ input {
 }
 
 /* Prevent mobile zoom on input focus by ensuring 16px minimum font size */
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 768px),
+  screen and (max-height: 500px) and (max-width: 1024px) {
   html {
     font-size: 17px;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    overscroll-behavior-y: contain;
   }
   input,
   textarea,
   select {
     font-size: 16px !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  a,
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  a:active,
+  button:active,
+  [role="button"]:active {
+    opacity: 0.82;
   }
 }
 

@@ -31,7 +31,7 @@ export const DealColumn = ({
   ];
 
   return (
-    <section className="flex h-[clamp(31rem,calc(100dvh-13.5rem),48rem)] w-[82vw] min-w-[82vw] flex-col overflow-hidden rounded-xl border bg-muted/25 shadow-xs sm:w-[19rem] sm:min-w-[19rem]">
+    <section className="flex h-[clamp(31rem,calc(100dvh-13.5rem),48rem)] w-[86vw] min-w-[86vw] snap-center flex-col overflow-hidden rounded-xl border bg-muted/25 shadow-xs sm:w-[19rem] sm:min-w-[19rem] sm:snap-start">
       <div className={`h-1 ${stageColors[stageIndex % stageColors.length]}`} />
       <header className="border-b bg-background px-3.5 py-3">
         <div className="flex items-start justify-between gap-3">

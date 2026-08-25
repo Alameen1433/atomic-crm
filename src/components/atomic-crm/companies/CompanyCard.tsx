@@ -33,12 +33,16 @@ export const CompanyCard = (props: { record?: Company }) => {
       })}
       className="no-underline"
     >
-      <Card className="h-[200px] flex flex-col justify-between p-4 hover:bg-muted">
+      <Card className="flex h-[168px] flex-col justify-between gap-2 p-3 transition-colors active:bg-muted md:h-[200px] md:p-4 md:hover:bg-muted">
         <div className="flex flex-col items-center gap-1">
           <CompanyAvatar />
-          <div className="text-center mt-1">
-            <h6 className="text-sm font-medium">{record.name}</h6>
-            <p className="text-xs text-muted-foreground">{sectorLabel}</p>
+          <div className="mt-1 min-w-0 text-center">
+            <h6 className="line-clamp-2 text-sm font-semibold leading-snug">
+              {record.name}
+            </h6>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {sectorLabel}
+            </p>
           </div>
         </div>
         <div className="flex flex-row w-full justify-between gap-2">
@@ -50,10 +54,10 @@ export const CompanyCard = (props: { record?: Company }) => {
             ) : null}
           </div>
           {record.nb_deals ? (
-            <div className="flex items-center ml-2 gap-0.5">
+            <div className="ml-2 flex shrink-0 items-center gap-0.5">
               <Handshake className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm font-medium">{record.nb_deals}</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="hidden text-xs text-muted-foreground min-[360px]:inline">
                 {translate("resources.deals.name", {
                   smart_count: record.nb_deals ?? 0,
                   _: "Deal |||| Deals",

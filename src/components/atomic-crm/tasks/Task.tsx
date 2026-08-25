@@ -24,6 +24,7 @@ import type { Contact, Task as TData } from "../types";
 import { TaskEdit } from "./TaskEdit";
 import { TaskEditSheet } from "./TaskEditSheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export const Task = ({
   task,
@@ -90,23 +91,37 @@ export const Task = ({
 
   return (
     <>
-      <div className="flex items-start justify-between">
-        <div
-          className="flex items-start gap-2 flex-1"
-          onClick={isMobile ? handleCheck() : undefined}
-        >
-          <Checkbox
-            id={labelId}
-            checked={!!task.done_date}
-            onCheckedChange={handleCheck()}
-            disabled={isUpdatePending}
-            className="mt-1"
-          />
+      <div
+        className={cn(
+          "flex items-start justify-between gap-1",
+          isMobile
+            ? "min-h-16 rounded-xl border bg-card p-2.5 shadow-xs"
+            : "min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none",
+        )}
+      >
+        <div className="flex min-w-0 flex-1 items-start gap-1">
+          <label
+            htmlFor={labelId}
+            className="flex size-11 shrink-0 cursor-pointer items-start justify-center pt-2"
+          >
+            <Checkbox
+              id={labelId}
+              checked={!!task.done_date}
+              onCheckedChange={handleCheck()}
+              disabled={isUpdatePending}
+              className="size-5"
+            />
+          </label>
           <div className={`flex-grow ${task.done_date ? "line-through" : ""}`}>
-            <div className="text-sm">
+            <div
+              className={cn(
+                "leading-snug",
+                isMobile ? "text-[0.95rem]" : "text-sm",
+              )}
+            >
               {task.type && task.type !== "none" && (
                 <>
-                  <span className="font-semibold text-sm">
+                  <span className="font-semibold">
                     {(() => {
                       const matchedTaskType = taskTypes.find(
                         (taskType) => taskType.value === task.type,
@@ -121,7 +136,7 @@ export const Task = ({
               )}
               {task.text}
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="mt-1 text-sm leading-snug text-muted-foreground">
               {translate("resources.tasks.fields.due_short")}
               &nbsp;
               <DateField source="due_date" record={task} showDate showTime />
@@ -154,15 +169,21 @@ export const Task = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 pr-0! size-8 cursor-pointer"
+              className="size-11 shrink-0 cursor-pointer rounded-xl"
               aria-label={translate("resources.tasks.actions.title")}
             >
-              <MoreVertical className="size-5 md:size-4" />
+              <MoreVertical
+                className={isMobile ? "size-5" : "size-4"}
+                aria-hidden="true"
+              />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              className="cursor-pointer h-12 md:h-8 px-4 md:px-2 text-base md:text-sm"
+              className={cn(
+                "cursor-pointer",
+                isMobile ? "h-12 px-4 text-base" : "h-8 px-2 text-sm",
+              )}
               onClick={() => {
                 update("tasks", {
                   id: task.id,
@@ -178,7 +199,10 @@ export const Task = ({
               {translate("resources.tasks.actions.postpone_tomorrow")}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="cursor-pointer h-12 md:h-8 px-4 md:px-2 text-base md:text-sm"
+              className={cn(
+                "cursor-pointer",
+                isMobile ? "h-12 px-4 text-base" : "h-8 px-2 text-sm",
+              )}
               onClick={() => {
                 update("tasks", {
                   id: task.id,
@@ -194,13 +218,19 @@ export const Task = ({
               {translate("resources.tasks.actions.postpone_next_week")}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="cursor-pointer h-12 md:h-8 px-4 md:px-2 text-base md:text-sm"
+              className={cn(
+                "cursor-pointer",
+                isMobile ? "h-12 px-4 text-base" : "h-8 px-2 text-sm",
+              )}
               onClick={handleEdit}
             >
               {translate("ra.action.edit")}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="cursor-pointer h-12 md:h-8 px-4 md:px-2 text-base md:text-sm"
+              className={cn(
+                "cursor-pointer",
+                isMobile ? "h-12 px-4 text-base" : "h-8 px-2 text-sm",
+              )}
               onClick={handleDelete}
             >
               {translate("ra.action.delete")}

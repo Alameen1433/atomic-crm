@@ -13,6 +13,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Filter } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const FlexForm = (props: React.FormHTMLAttributes<HTMLFormElement>) => (
   <form className="flex-1" {...props} />
@@ -29,6 +30,7 @@ export const ResponsiveFilters = ({
   const {
     source = "q",
     className,
+    inputClassName,
     ...otherSearchInputProps
   } = searchInput || {};
   const isMobile = useIsMobile();
@@ -53,6 +55,7 @@ export const ResponsiveFilters = ({
           <SearchInput
             source={source}
             className={className}
+            inputClassName={cn("h-11 text-base", inputClassName)}
             {...otherSearchInputProps}
           />
         </FilterLiveForm>
@@ -61,7 +64,7 @@ export const ResponsiveFilters = ({
             <Button
               variant="ghost"
               size="icon"
-              className="relative size-9"
+              className="relative size-11 shrink-0 rounded-xl"
               aria-label={translate("ra.action.add_filter")}
             >
               <Filter className="size-5" />
@@ -83,7 +86,7 @@ export const ResponsiveFilters = ({
                 </h1>
               </SheetTitle>
             </SheetHeader>
-            <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-4">
+            <div className="flex flex-1 flex-col gap-3 overflow-y-auto pb-4 [&_button]:min-h-11">
               {children}
             </div>
             <SheetFooter className="-p-4 relative">
@@ -94,7 +97,7 @@ export const ResponsiveFilters = ({
                     onClick={handleClearFilters}
                     type="button"
                     variant="secondary"
-                    className="flex-1"
+                    className="h-12 flex-1"
                   >
                     {translate("ra.navigation.clear_filters", {
                       _: "Clear filters",
@@ -102,7 +105,7 @@ export const ResponsiveFilters = ({
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>
-                  <Button className="flex-1">
+                  <Button className="h-12 flex-1">
                     {translate("ra.action.confirm")}
                   </Button>
                 </SheetClose>
