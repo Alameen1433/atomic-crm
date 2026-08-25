@@ -9,18 +9,21 @@ import {
 } from "ra-core";
 import { Link } from "react-router";
 import { DeleteButton } from "@/components/admin/delete-button";
-import { ReferenceField } from "@/components/admin/reference-field";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 import { FormToolbar } from "../layout/FormToolbar";
-import { CompanyAvatar } from "../companies/CompanyAvatar";
 import type { Deal } from "../types";
 import { DealInputs } from "./DealInputs";
+import { DealDialogContent } from "./DealDialogContent";
+import { DealDialogHeader } from "./DealDialogHeader";
 
 export const DealEdit = ({ open, id }: { open: boolean; id?: string }) => {
   const redirect = useRedirect();
   const notify = useNotify();
+  const isMobile = useIsMobile();
 
   const handleClose = () => {
     redirect("/deals", undefined, undefined, undefined, {
@@ -29,8 +32,8 @@ export const DealEdit = ({ open, id }: { open: boolean; id?: string }) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => handleClose()}>
-      <DialogContent className="lg:max-w-4xl p-4 overflow-y-auto max-h-9/10 top-1/20 translate-y-0">
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
+      <DealDialogContent>
         {id ? (
           <EditBase
             id={id}
@@ -46,42 +49,69 @@ export const DealEdit = ({ open, id }: { open: boolean; id?: string }) => {
           >
             <EditHeader />
             <Form>
-              <DealInputs />
-              <FormToolbar />
+              <div
+                className={cn(
+                  isMobile &&
+                    "px-4 pt-5 [&_input]:min-h-11 [&_[role=combobox]]:min-h-11",
+                )}
+              >
+                <DealInputs />
+              </div>
+              <FormToolbar mobileFullBleed />
             </Form>
           </EditBase>
         ) : null}
-      </DialogContent>
+      </DealDialogContent>
     </Dialog>
   );
 };
 
 function EditHeader() {
-  const translate = useTranslate();
   const { defaultTitle } = useEditContext<Deal>();
   const deal = useRecordContext<Deal>();
+  const isMobile = useIsMobile();
   if (!deal) {
     return null;
   }
 
   return (
-    <DialogTitle className="pb-0">
-      <div className="flex justify-between items-start mb-8">
-        <div className="flex items-center gap-4">
-          <ReferenceField source="company_id" reference="companies" link="show">
-            <CompanyAvatar />
-          </ReferenceField>
-          <h2 className="text-2xl font-semibold">{defaultTitle}</h2>
+    <>
+      <DealDialogHeader
+        title={defaultTitle}
+        actions={<EditHeaderActions deal={deal} />}
+      />
+      {isMobile ? (
+        <div className="px-4 pt-4">
+          <EditHeaderActions deal={deal} mobile />
         </div>
-        <div className="flex gap-2 pr-12">
-          <DeleteButton />
-          <Button asChild variant="outline" className="h-9">
-            <Link to={`/deals/${deal.id}/show`}>
-              {translate("resources.deals.action.back_to_deal")}
-            </Link>
-          </Button>
-        </div>
-      </div>
-    </DialogTitle>
+      ) : null}
+    </>
   );
 }
+
+const EditHeaderActions = ({
+  deal,
+  mobile = false,
+}: {
+  deal: Deal;
+  mobile?: boolean;
+}) => {
+  const translate = useTranslate();
+
+  return (
+    <div
+      className={cn(
+        mobile
+          ? "grid grid-cols-2 gap-2 [&>*]:h-auto [&>*]:min-h-11 [&>*]:w-full [&>*]:justify-center [&>*]:whitespace-normal"
+          : "flex gap-2 pr-12",
+      )}
+    >
+      <DeleteButton />
+      <Button asChild variant="outline" className="h-11">
+        <Link to={`/deals/${deal.id}/show`}>
+          {translate("resources.deals.action.back_to_deal")}
+        </Link>
+      </Button>
+    </div>
+  );
+};

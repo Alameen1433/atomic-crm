@@ -610,6 +610,14 @@
           "type": "registry:component"
         },
         {
+          "path": "src/components/atomic-crm/deals/DealDialogHeader.tsx",
+          "type": "registry:component"
+        },
+        {
+          "path": "src/components/atomic-crm/deals/DealDialogContent.tsx",
+          "type": "registry:component"
+        },
+        {
           "path": "src/components/atomic-crm/deals/DealCreate.tsx",
           "type": "registry:component"
         },
